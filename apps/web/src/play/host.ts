@@ -6,22 +6,16 @@ import {
   drawCard,
   eventFor,
   viewFor,
-  type GameEvent,
   type GameState,
   type PlayerId,
-  type PlayerView,
 } from '@sp/engine';
+import type { Step } from '@sp/engine/protocol';
 
 /**
- * One thing for the table to show. The table plays steps one at a time and
- * calls ready() when it has caught up, so the bots never act mid-animation.
- * An online host (Phase 3) will produce the same steps from the server.
+ * Where the table gets its steps from: a practice game in the browser, or a
+ * room on the game server. The table plays steps one at a time and calls
+ * ready() when it has caught up, so local bots never act mid-animation.
  */
-export type Step =
-  | { readonly kind: 'deal'; readonly events: readonly GameEvent[]; readonly view: PlayerView }
-  | { readonly kind: 'action'; readonly events: readonly GameEvent[]; readonly view: PlayerView }
-  | { readonly kind: 'hover'; readonly playerId: PlayerId; readonly slot: number };
-
 export interface GameHost {
   readonly you: PlayerId;
   subscribe(listener: (step: Step) => void): () => void;

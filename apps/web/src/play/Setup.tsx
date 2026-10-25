@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import type { PracticeSettings } from './host';
+import { PLAY_PATH } from './config';
 
 const BOT_CHOICES = [1, 2, 3, 4, 5];
 
@@ -67,8 +68,8 @@ export function Setup({ initial, onStart }: { initial: PracticeSettings; onStart
             <button type="submit" className="btn btn-glut text-base">
               Deal the cards
             </button>
-            <a href="/#rules" className="link text-[15px]">
-              How to play
+            <a href={`${PLAY_PATH}?create=1`} className="link text-[15px]">
+              Play with friends instead
             </a>
           </div>
         </form>

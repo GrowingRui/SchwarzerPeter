@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { ALPINE_DECK, PETER, type Card, type GameEvent, type PlayerId, type PlayerView } from '@sp/engine';
-import type { GameHost, Step } from './host';
+import type { Step } from '@sp/engine/protocol';
+import type { GameHost } from './host';
 import { CardBack, CardFace, cardName } from './cards';
 import { fly, rectOf, setTempo, wait } from './fly';
 import { TopBar } from './Setup';
@@ -19,7 +20,28 @@ const handCard = (id: string) => `[data-hand-card="${id}"]`;
 const seatHand = (id: PlayerId) => `[data-seat-hand="${id}"]`;
 const PILE = '[data-pile-target]';
 
-export function Table({ host, onPlayAgain, onChangePlayers }: { host: GameHost; onPlayAgain: () => void; onChangePlayers: () => void }) {
+export interface ResultAction {
+  readonly label: string;
+  readonly onClick: () => void;
+}
+
+export interface TableProps {
+  host: GameHost;
+  /** Buttons on the result screen, plus an optional line shown under them. */
+  result: { primary?: ResultAction; secondary?: ResultAction; note?: string };
+  /** What leaving does. Defaults to going back to the homepage. */
+  onLeave?: () => void;
+  /** Explains what happens to the round if you leave now. */
+  leaveNote?: string;
+  /** Players whose connection dropped (online games). */
+  offline?: ReadonlySet<PlayerId>;
+}
+
+const goHome = () => {
+  location.href = '/';
+};
+
+export function Table({ host, result, onLeave = goHome, leaveNote = 'The round ends and can’t be picked up again.', offline }: TableProps) {
   const you = host.you;
   const [view, setView] = useState<PlayerView | null>(null);
   const [extra, setExtra] = useState<readonly Card[]>([]); // pairs you were dealt, shown before they go down
@@ -179,9 +201,28 @@ export function Table({ host, onPlayAgain, onChangePlayers }: { host: GameHost; 
         : { text: `${Name(drawn.drawer)} drew a card from ${nameOf(drawn.offerer)}.` };
     }
 
+    /** Jump straight to a view, e.g. after reconnecting to an online game. */
+    async function playSync(view: PlayerView) {
+      commit(() => {
+        show(view);
+        setExtra([]);
+        setHidden(new Set());
+        setHiddenPairs(0);
+        setHover(null);
+        setPhase(view.phase === 'over' ? 'over' : 'playing');
+      });
+      if (view.phase === 'over' && view.loser) {
+        setMessage(view.loser === you ? { text: 'You’re left with the Schwarzer Peter.', tone: 'peter' } : { text: `${nameOf(view.loser)} is left with the Schwarzer Peter.`, tone: 'good' });
+        setShowResult(true);
+      } else if (view.drawer && view.offerer) {
+        setMessage(view.drawer === you ? { text: `Your turn. Draw a card from ${nameOf(view.offerer)}.` } : { text: `${nameOf(view.drawer)} draws from ${nameOf(view.offerer)}.` });
+      }
+    }
+
     async function play(step: Step) {
       if (step.kind === 'deal') return playDeal(step);
       if (step.kind === 'action') return playAction(step);
+      if (step.kind === 'sync') return playSync(step.view);
       setHover(step.slot);
       setMessage({ text: `${nameOf(step.playerId)} is choosing one of your cards…` });
       await wait(430);
@@ -234,7 +275,7 @@ export function Table({ host, onPlayAgain, onChangePlayers }: { host: GameHost; 
         <p className="hidden text-sm text-pergament-dim sm:block">
           <span className="font-semibold text-pergament">{visiblePairs.length}</span> of {ALPINE_DECK.length} pairs down
         </p>
-        <button type="button" className="btn btn-line px-5 py-2.5 text-[15px]" onClick={() => (phase === 'over' ? (location.href = '/') : setConfirmLeave(true))}>
+        <button type="button" className="btn btn-line px-5 py-2.5 text-[15px]" onClick={() => (phase === 'over' ? onLeave() : setConfirmLeave(true))}>
           Leave game
         </button>
       </TopBar>
@@ -256,6 +297,7 @@ export function Table({ host, onPlayAgain, onChangePlayers }: { host: GameHost; 
                   role={phase !== 'playing' ? null : view.drawer === s.id ? 'drawer' : view.offerer === s.id ? 'offerer' : null}
                   place={s.isOut ? placeOf(s.id) : 0}
                   loser={view.loser === s.id}
+                  offline={!!offline?.has(s.id)}
                 />
               );
             })}
@@ -299,8 +341,8 @@ export function Table({ host, onPlayAgain, onChangePlayers }: { host: GameHost; 
         </section>
       </main>
 
-      {showResult && <Result view={view} you={you} onPlayAgain={onPlayAgain} onChangePlayers={onChangePlayers} />}
-      {confirmLeave && <ConfirmLeave onStay={() => setConfirmLeave(false)} />}
+      {showResult && <Result view={view} you={you} actions={result} />}
+      {confirmLeave && <ConfirmLeave note={leaveNote} onStay={() => setConfirmLeave(false)} onLeave={onLeave} />}
     </div>
   );
 }
@@ -315,12 +357,23 @@ function Seat(props: {
   role: 'drawer' | 'offerer' | null;
   place: number;
   loser: boolean;
+  offline: boolean;
   style: CSSProperties;
 }) {
-  const { id, name, index, count, role, place, loser, style } = props;
-  const status = loser ? 'kept the cat' : place ? `safe, ${ordinal(place)} out` : role === 'drawer' ? 'drawing' : role === 'offerer' ? 'holding out cards' : `${count} ${count === 1 ? 'card' : 'cards'}`;
+  const { id, name, index, count, role, place, loser, offline, style } = props;
+  const status = loser
+    ? 'kept the cat'
+    : place
+      ? `safe, ${ordinal(place)} out`
+      : offline
+        ? 'offline, cards drawn for them'
+        : role === 'drawer'
+          ? 'drawing'
+          : role === 'offerer'
+            ? 'holding out cards'
+            : `${count} ${count === 1 ? 'card' : 'cards'}`;
   return (
-    <li className={`seat ${role ? `is-${role}` : ''} ${place ? 'is-out' : ''} ${loser ? 'is-loser' : ''}`} style={style}>
+    <li className={`seat ${role ? `is-${role}` : ''} ${place ? 'is-out' : ''} ${loser ? 'is-loser' : ''} ${offline && !place ? 'is-offline' : ''}`} style={style}>
       <div className="flex items-center gap-2.5">
         <span className={`avatar avatar-${index % 5}`} aria-hidden="true">
           {name.slice(0, 1)}
@@ -437,16 +490,17 @@ function Hand(props: {
   );
 }
 
-function Result({ view, you, onPlayAgain, onChangePlayers }: { view: PlayerView; you: PlayerId; onPlayAgain: () => void; onChangePlayers: () => void }) {
+function Result({ view, you, actions }: { view: PlayerView; you: PlayerId; actions: TableProps['result'] }) {
   const lost = view.loser === you;
   const loser = view.seats.find((s) => s.id === view.loser);
   const place = view.finishOrder.indexOf(you) + 1;
   const ref = useRef<HTMLButtonElement>(null);
-  useEffect(() => ref.current?.focus(), []);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => (ref.current ?? dialogRef.current)?.focus(), []);
   const peter: Card = { id: 'result-peter', face: PETER };
   return (
     <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="result-title">
-      <div className="dialog frame elev-2 rounded-[28px] [--r:28px]">
+      <div ref={dialogRef} tabIndex={-1} className="dialog frame elev-2 rounded-[28px] [--r:28px] outline-none">
         <div className="mx-auto w-[clamp(110px,22vw,150px)] rotate-[4deg]">
           <CardFace card={peter} className="result-card" />
         </div>
@@ -478,14 +532,21 @@ function Result({ view, you, onPlayAgain, onChangePlayers }: { view: PlayerView;
             </li>
           )}
         </ol>
-        <div className="mt-9 flex flex-wrap justify-center gap-3">
-          <button ref={ref} type="button" className="btn btn-glut" onClick={onPlayAgain}>
-            Play again
-          </button>
-          <button type="button" className="btn btn-line" onClick={onChangePlayers}>
-            Change players
-          </button>
-        </div>
+        {(actions.primary || actions.secondary) && (
+          <div className="mt-9 flex flex-wrap justify-center gap-3">
+            {actions.primary && (
+              <button ref={ref} type="button" className="btn btn-glut" onClick={actions.primary.onClick}>
+                {actions.primary.label}
+              </button>
+            )}
+            {actions.secondary && (
+              <button type="button" className="btn btn-line" onClick={actions.secondary.onClick}>
+                {actions.secondary.label}
+              </button>
+            )}
+          </div>
+        )}
+        {actions.note && <p className="mt-8 text-center text-pergament-dim">{actions.note}</p>}
         <p className="mt-6 text-center text-sm">
           <a href="/" className="link">
             Back to the homepage
@@ -496,7 +557,7 @@ function Result({ view, you, onPlayAgain, onChangePlayers }: { view: PlayerView;
   );
 }
 
-function ConfirmLeave({ onStay }: { onStay: () => void }) {
+function ConfirmLeave({ note, onStay, onLeave }: { note: string; onStay: () => void; onLeave: () => void }) {
   const ref = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     ref.current?.focus();
@@ -510,14 +571,14 @@ function ConfirmLeave({ onStay }: { onStay: () => void }) {
         <h2 id="leave-title" className="h-display text-center text-3xl">
           Leave this game?
         </h2>
-        <p className="mt-3 text-center text-pergament-dim">The round ends and can’t be picked up again.</p>
+        <p className="mt-3 text-center text-pergament-dim">{note}</p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <button ref={ref} type="button" className="btn btn-glut" onClick={onStay}>
             Keep playing
           </button>
-          <a href="/" className="btn btn-line">
+          <button type="button" className="btn btn-line" onClick={onLeave}>
             Leave game
-          </a>
+          </button>
         </div>
       </div>
     </div>

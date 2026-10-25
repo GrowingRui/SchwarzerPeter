@@ -35,5 +35,11 @@ export function App() {
   };
 
   if (!host) return <Setup initial={settings} onStart={start} />;
-  return <Table key={round} host={host} onPlayAgain={() => start(settings)} onChangePlayers={() => setHost(null)} />;
+  return (
+    <Table
+      key={round}
+      host={host}
+      result={{ primary: { label: 'Play again', onClick: () => start(settings) }, secondary: { label: 'Change players', onClick: () => setHost(null) } }}
+    />
+  );
 }

@@ -12,7 +12,9 @@
     "preview": "npm run preview -w @sp/web",
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "screenshot": "node screenshot.mjs"
+    "screenshot": "node screenshot.mjs",
+    "dev:server": "npm run dev -w @sp/server",
+    "deploy:server": "npm run deploy -w @sp/server"
   },
   "engines": {
     "node": ">=20"

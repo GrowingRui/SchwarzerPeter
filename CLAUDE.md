@@ -11,12 +11,14 @@
 - npm workspaces monorepo. Run `npm install` at the root.
 - `apps/web`: website and game screens. Vite, Tailwind v4 (`src/styles.css` holds the `@theme` brand tokens and the shared component styles), ES module scripts in `src/`, static files in `public/`. Pages are listed in `vite.config.js` (`build.rollupOptions.input`).
 - `apps/web/src/cards.js`: the SVG card art for the Alpine deck.
-- `packages/engine` (`@sp/engine`): the game rules as pure TypeScript functions with a seeded RNG, shared by the web app, bots and (later) the game server. Every rule change needs a test in `packages/engine/test`.
+- `packages/engine` (`@sp/engine`): the game rules as pure TypeScript functions with a seeded RNG, shared by the web app, bots and the game server. `@sp/engine/protocol` defines the browser/server messages. Every rule change needs a test in `packages/engine/test`.
+- `apps/server` (`@sp/server`): online rooms on Cloudflare Workers + Durable Objects. Room logic lives in `src/room.ts` (tested in Node), the Durable Object in `src/worker.ts`.
 - `brand_assets/`: logo source and `brand-guidelines.md`. The web copy of the logo is `apps/web/public/brand_assets/logo-web.jpg`.
-- Hosting: Vercel for the website (`vercel.json` builds `apps/web`). Live multiplayer will use the Cloudflare Workers + Durable Objects free plan (free plans only).
+- Hosting: Vercel for the website (`vercel.json` builds `apps/web`). Online rooms run on the Cloudflare Workers + Durable Objects free plan (free plans only).
 
 ## Commands
 - `npm run dev` or `node serve.mjs`: Vite dev server at `http://localhost:3000`.
+- `npm run dev:server`: local game server at `http://localhost:8787`, needed for online rooms. Test with two players from a normal and a private window.
 - `npm test`: engine tests. `npm run typecheck`: TypeScript. `npm run build`: production build in `apps/web/dist`.
 - CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every push.
 

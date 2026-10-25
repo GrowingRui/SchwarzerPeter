@@ -53,3 +53,23 @@ function pick(slot, isPeter, name) {
 
 reset.addEventListener('click', deal);
 deal();
+
+// "Got a code? Join a room."
+const joinForm = document.getElementById('join-form');
+const codeInput = document.getElementById('code');
+const codeError = document.getElementById('code-error');
+joinForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const code = codeInput.value.trim().toUpperCase();
+  if (!/^[A-HJ-NP-Z]{5}$/.test(code)) {
+    codeError.hidden = false;
+    codeInput.setAttribute('aria-invalid', 'true');
+    codeInput.focus();
+    return;
+  }
+  location.href = `/play.html?room=${code}`;
+});
+codeInput.addEventListener('input', () => {
+  codeError.hidden = true;
+  codeInput.removeAttribute('aria-invalid');
+});
