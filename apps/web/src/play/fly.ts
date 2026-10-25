@@ -4,13 +4,16 @@ const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matc
 export const SPRING = 'cubic-bezier(.34, 1.4, .64, 1)';
 export const EASE_OUT = 'cubic-bezier(.22, 1, .36, 1)';
 
+/** Overall game pace: above 1 is slower. Every flight and pause is scaled by it. */
+const PACE = 1.25;
+
 /** Speeds the table up (below 1) once nothing depends on you any more. */
 let tempo = 1;
 export const setTempo = (t: number) => {
   tempo = t;
 };
 
-export const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, reduced() ? Math.min(ms, 60) : ms * tempo));
+export const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, reduced() ? Math.min(ms, 60) : ms * tempo * PACE));
 export const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 
 export interface FlyOptions {
@@ -50,7 +53,7 @@ export async function fly(from: DOMRect, to: DOMRect, opts: FlyOptions): Promise
   const fy = from.top + from.height / 2 - height / 2;
   const tx = to.left + to.width / 2 - width / 2;
   const ty = to.top + to.height / 2 - height / 2;
-  const duration = reduced() ? 1 : (opts.duration ?? 560) * Math.max(tempo, 0.6);
+  const duration = reduced() ? 1 : (opts.duration ?? 560) * Math.max(tempo, 0.6) * PACE;
 
   const move = el.animate(
     [

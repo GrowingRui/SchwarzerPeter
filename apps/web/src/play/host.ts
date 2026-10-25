@@ -106,7 +106,7 @@ export function createPracticeGame(settings: PracticeSettings): GameHost {
       // Bots take their time when you're involved; turns between bots move faster.
       const youInvolved = turn.offerer === YOU;
       const youOut = state.players.find((p) => p.id === YOU)?.hand.length === 0;
-      timer = setTimeout(botTurn, youOut ? 220 + rng.int(200) : youInvolved ? 650 + rng.int(500) : 380 + rng.int(320));
+      timer = setTimeout(botTurn, youOut ? 280 + rng.int(240) : youInvolved ? 800 + rng.int(600) : 480 + rng.int(400));
     },
     dispose() {
       clearTimeout(timer);

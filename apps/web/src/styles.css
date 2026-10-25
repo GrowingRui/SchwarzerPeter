@@ -86,9 +86,12 @@
   .link:hover::after, .link:focus-visible::after { transform: scaleX(1); }
   .link:active { opacity: .7; }
 
-  /* Logo crop for the nav: shows the wordmark, trims the ornament border */
-  .logo-crop { position: relative; width: 132px; height: 78px; overflow: hidden; border-radius: 6px; }
-  .logo-crop img { position: absolute; width: 164px; max-width: none; left: -16px; top: -40px; }
+  /* The full square logo, ornaments included. Size it with --logo. */
+  .logo-mark {
+    display: block; flex: none; width: var(--logo, 88px); aspect-ratio: 1; overflow: hidden; border-radius: 12px;
+    box-shadow: 0 0 0 1px rgba(198, 161, 91, .45), 0 10px 24px -10px rgba(18, 21, 27, .85);
+  }
+  .logo-mark img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
   /* ---------- Cards ---------- */
   .card {

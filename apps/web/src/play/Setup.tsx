@@ -80,7 +80,7 @@ export function Setup({ initial, onStart }: { initial: PracticeSettings; onStart
 export function TopBar({ children }: { children?: ReactNode }) {
   return (
     <header className="relative z-30 mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-4 px-5 sm:px-8">
-      <a href="/" className="logo-crop ring-focus shrink-0 scale-[.82] origin-left transition-transform duration-300 hover:-translate-y-0.5 active:scale-[.78]" aria-label="Schwarzer Peter home">
+      <a href="/" className="logo-mark ring-focus [--logo:60px] sm:[--logo:64px] transition-transform duration-300 hover:-translate-y-0.5 active:scale-95" aria-label="Schwarzer Peter home">
         <img src="/brand_assets/logo-web.jpg" alt="Schwarzer Peter" />
       </a>
       {children}
