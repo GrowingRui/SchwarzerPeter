@@ -3,8 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Schwarzer Peter: the card game, online</title>
-<meta name="description" content="Play Schwarzer Peter online with friends, strangers or bots. Draw, match pairs, and don't get stuck with the cat.">
+<title data-i18n="meta.homeTitle">Schwarzer Peter: the card game, online</title>
+<meta name="description" data-i18n-attr="content:meta.homeDescription" content="Play Schwarzer Peter online with friends, strangers or bots. Draw, match pairs, and don't get stuck with the cat.">
+<script>
+  try {
+    var l = new URLSearchParams(location.search).get('lang') || localStorage.getItem('sp.lang') || ((navigator.language || '').toLowerCase().indexOf('de') === 0 ? 'de' : 'en');
+    if (l === 'de') {
+      document.documentElement.lang = 'de';
+      document.documentElement.classList.add('i18n-pending');
+      setTimeout(function () { document.documentElement.classList.remove('i18n-pending'); }, 1500);
+    }
+  } catch (e) {}
+</script>
+<style>.i18n-pending body { visibility: hidden; }</style>
 <link rel="icon" href="/brand_assets/logo-web.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,19 +27,23 @@
 
 <!-- Nav -->
 <header class="relative z-40">
-  <nav class="mx-auto max-w-6xl px-5 sm:px-8 h-28 flex items-center justify-between gap-6" aria-label="Main">
-    <a href="#" class="logo-mark ring-focus [--logo:72px] sm:[--logo:88px] transition-transform duration-300 hover:-translate-y-0.5 active:scale-95" aria-label="Schwarzer Peter home">
+  <nav class="mx-auto max-w-6xl px-5 sm:px-8 h-28 flex items-center justify-between gap-6" aria-label="Main" data-i18n-attr="aria-label:nav.main">
+    <a href="#" class="logo-mark ring-focus [--logo:72px] sm:[--logo:88px] transition-transform duration-300 hover:-translate-y-0.5 active:scale-95" aria-label="Schwarzer Peter home" data-i18n-attr="aria-label:home.aria">
       <img src="/brand_assets/logo-web.jpg" alt="Schwarzer Peter">
     </a>
     <ul class="hidden md:flex items-center gap-9 text-[15px]">
-      <li><a class="link" href="#play">Play</a></li>
-      <li><a class="link" href="#rules">How to play</a></li>
-      <li><a class="link" href="#deck">The deck</a></li>
-      <li><a class="link" href="#online">Playing online</a></li>
+      <li><a class="link" href="#play" data-i18n="nav.play">Play</a></li>
+      <li><a class="link" href="#rules" data-i18n="nav.rules">How to play</a></li>
+      <li><a class="link" href="#deck" data-i18n="nav.deck">The deck</a></li>
+      <li><a class="link" href="#online" data-i18n="nav.online">Playing online</a></li>
     </ul>
-    <div class="flex items-center gap-3">
-      <a href="#" class="link hidden sm:inline text-[15px] mr-3">Sign in</a>
-      <a href="#play" class="btn btn-glut text-[15px] py-2.5! px-5!">Play now</a>
+    <div class="flex items-center gap-3 sm:gap-4">
+      <div class="lang-switch" role="group" aria-label="Language" data-i18n-attr="aria-label:lang.label">
+        <button type="button" data-set-lang="en" aria-pressed="true" lang="en" title="English">EN</button>
+        <button type="button" data-set-lang="de" aria-pressed="false" lang="de" title="Deutsch">DE</button>
+      </div>
+      <a href="#" class="link hidden sm:inline text-[15px] mr-1" data-i18n="nav.signin">Sign in</a>
+      <a href="#play" class="btn btn-glut text-[15px] py-2.5! px-5!" data-i18n="cta.playNow">Play now</a>
     </div>
   </nav>
 </header>
@@ -38,26 +53,26 @@
   <section class="relative mx-auto max-w-6xl px-5 sm:px-8 pt-8 md:pt-14 pb-[var(--s-section)]">
     <div class="grid md:grid-cols-[1.05fr_1fr] gap-14 md:gap-8 items-center">
       <div class="relative z-10">
-        <h1 class="h-display text-[clamp(3rem,7.2vw,6rem)] text-pergament">
+        <h1 class="h-display text-[clamp(3rem,7.2vw,6rem)] text-pergament" data-i18n="hero.title">
           Whoever keeps the cat loses.
         </h1>
-        <p class="mt-7 max-w-[34rem] text-lg text-pergament-dim">
+        <p class="mt-7 max-w-[34rem] text-lg text-pergament-dim" data-i18n="hero.lead">
           The old German card game, now in your browser. Match pairs, draw from your neighbour’s hand, and pass the black cat along before the round ends.
         </p>
         <div class="mt-10 flex flex-wrap items-center gap-4">
-          <a href="#play" class="btn btn-glut text-base">Play now</a>
-          <a href="/play.html?create=1" class="btn btn-line text-base">Invite friends</a>
+          <a href="#play" class="btn btn-glut text-base" data-i18n="cta.playNow">Play now</a>
+          <a href="/play.html?create=1" class="btn btn-line text-base" data-i18n="hero.invite">Invite friends</a>
         </div>
-        <p class="mt-6 text-sm text-pergament-mute">Free to play, 2 to 6 players. Nothing to install.</p>
+        <p class="mt-6 text-sm text-pergament-mute" data-i18n="hero.note">Free to play, 2 to 6 players. Nothing to install.</p>
       </div>
 
       <div class="relative">
         <div class="absolute -inset-10 -z-0 rounded-full bg-[radial-gradient(closest-side,rgba(232,98,44,.18),transparent)]" aria-hidden="true"></div>
-        <p class="relative text-center text-pergament-dim mb-12">Draw a card from Peter’s hand.</p>
-        <div id="hand" class="hand relative" role="group" aria-label="Peter's hand of seven face-down cards"></div>
+        <p class="relative text-center text-pergament-dim mb-12" data-i18n="hero.prompt">Draw a card from Peter’s hand.</p>
+        <div id="hand" class="hand relative" role="group" aria-label="Peter's hand of seven face-down cards" data-i18n-attr="aria-label:hero.handAria"></div>
         <div class="relative mt-14 h-16 flex flex-col items-center justify-start text-center" aria-live="polite">
           <p id="handMsg" class="reveal font-display text-2xl tracking-[-0.02em]"></p>
-          <button id="handReset" type="button" class="reveal link mt-1 text-sm" tabindex="-1">Shuffle and try again</button>
+          <button id="handReset" type="button" class="reveal link mt-1 text-sm" tabindex="-1" data-i18n="hero.reset">Shuffle and try again</button>
         </div>
       </div>
     </div>
@@ -65,41 +80,41 @@
 
   <!-- Ways to play -->
   <section id="play" class="relative mx-auto max-w-6xl px-5 sm:px-8 pb-[var(--s-section)] scroll-mt-8">
-    <h2 class="h-display text-[clamp(2.2rem,4.4vw,3.4rem)] max-w-xl">Pick a table</h2>
-    <p class="mt-4 max-w-xl text-pergament-dim">Play with people you know, join strangers, or practise against the computer first.</p>
+    <h2 class="h-display text-[clamp(2.2rem,4.4vw,3.4rem)] max-w-xl" data-i18n="play.title">Pick a table</h2>
+    <p class="mt-4 max-w-xl text-pergament-dim" data-i18n="play.lead">Play with people you know, join strangers, or practise against the computer first.</p>
 
     <div class="mt-12 grid lg:grid-cols-[1.35fr_1fr] gap-6">
       <!-- Private room: the main path -->
       <article class="frame elev-2 rounded-[22px] [--r:22px] bg-kohle-raised p-8 sm:p-11 overflow-hidden relative">
         <div class="absolute -right-24 -top-24 w-80 h-80 rounded-full bg-[radial-gradient(closest-side,rgba(232,98,44,.22),transparent)]" aria-hidden="true"></div>
-        <h3 class="h-display text-3xl sm:text-[2.4rem] relative">Play with friends</h3>
-        <p class="mt-3 max-w-md text-pergament-dim relative">Create a private room and send the link to family or friends. Everyone joins from their own phone or computer.</p>
+        <h3 class="h-display text-3xl sm:text-[2.4rem] relative" data-i18n="friends.title">Play with friends</h3>
+        <p class="mt-3 max-w-md text-pergament-dim relative" data-i18n="friends.text">Create a private room and send the link to family or friends. Everyone joins from their own phone or computer.</p>
         <div class="mt-9 relative flex flex-col sm:flex-row gap-4">
-          <a href="/play.html?create=1" class="btn btn-glut">Create a room</a>
+          <a href="/play.html?create=1" class="btn btn-glut" data-i18n="cta.createRoom">Create a room</a>
         </div>
         <form id="join-form" class="mt-9 relative" novalidate>
-          <label for="code" class="block text-sm text-pergament-dim mb-2.5">Got a code? Join a room.</label>
+          <label for="code" class="block text-sm text-pergament-dim mb-2.5" data-i18n="joinForm.label">Got a code? Join a room.</label>
           <div class="flex gap-3 max-w-sm">
             <input id="code" name="code" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="KATZE" aria-describedby="code-error" class="code-input min-w-0 flex-1 rounded-full bg-russ/70 px-5 py-3 font-semibold uppercase text-pergament shadow-[inset_0_0_0_1px_rgba(198,161,91,.35),inset_0_2px_6px_rgba(0,0,0,.4)]">
-            <button class="btn btn-line">Join</button>
+            <button class="btn btn-line" data-i18n="joinForm.button">Join</button>
           </div>
-          <p id="code-error" class="mt-2.5 text-sm text-glut" hidden>Room codes are 5 letters, like KATZE.</p>
+          <p id="code-error" class="mt-2.5 text-sm text-glut" hidden data-i18n="joinForm.error">Room codes are 5 letters, like KATZE.</p>
         </form>
       </article>
 
       <div class="grid gap-6">
         <article class="elev-1 rounded-[18px] bg-kohle-raised/80 p-8 shadow-[inset_0_0_0_1px_rgba(198,161,91,.18)]">
           <div class="flex items-start justify-between gap-4">
-            <h3 class="h-display text-2xl">Quick match</h3>
-            <span class="flex items-center gap-2 text-sm text-pergament-dim whitespace-nowrap"><span class="w-2 h-2 rounded-full bg-glut shadow-[0_0_0_4px_rgba(232,98,44,.18)]"></span>1,284 playing</span>
+            <h3 class="h-display text-2xl" data-i18n="quick.title">Quick match</h3>
+            <span class="flex items-center gap-2 text-sm text-pergament-dim whitespace-nowrap"><span class="w-2 h-2 rounded-full bg-glut shadow-[0_0_0_4px_rgba(232,98,44,.18)]"></span><span data-i18n="quick.count">1,284 playing</span></span>
           </div>
-          <p class="mt-2 text-pergament-dim">Get seated at an open table with players from around the world.</p>
-          <a href="#" class="link inline-block mt-5 font-semibold text-pergament">Find a table</a>
+          <p class="mt-2 text-pergament-dim" data-i18n="quick.text">Get seated at an open table with players from around the world.</p>
+          <a href="#" class="link inline-block mt-5 font-semibold text-pergament" data-i18n="quick.link">Find a table</a>
         </article>
         <article class="elev-1 rounded-[18px] bg-kohle-raised/80 p-8 shadow-[inset_0_0_0_1px_rgba(198,161,91,.18)]">
-          <h3 class="h-display text-2xl">Practise against bots</h3>
-          <p class="mt-2 text-pergament-dim">Learn the rules at your own pace against one to five computer players.</p>
-          <a href="/play.html" class="link inline-block mt-5 font-semibold text-pergament">Start a practice game</a>
+          <h3 class="h-display text-2xl" data-i18n="cta.practise">Practise against bots</h3>
+          <p class="mt-2 text-pergament-dim" data-i18n="practice.text">Learn the rules at your own pace against one to five computer players.</p>
+          <a href="/play.html" class="link inline-block mt-5 font-semibold text-pergament" data-i18n="practice.link">Start a practice game</a>
         </article>
       </div>
     </div>
@@ -110,16 +125,16 @@
     <div class="mx-auto max-w-6xl px-5 sm:px-8">
       <div class="grid md:grid-cols-[1fr_1.6fr] gap-12 md:gap-20">
         <div>
-          <h2 class="h-display text-[clamp(2.2rem,4.4vw,3.4rem)]">How to play</h2>
-          <p class="mt-4 text-pergament-dim max-w-sm">Match and discard as many pairs as you can, and don’t be the one left holding the Schwarzer Peter when the game ends.</p>
+          <h2 class="h-display text-[clamp(2.2rem,4.4vw,3.4rem)]" data-i18n="nav.rules">How to play</h2>
+          <p class="mt-4 text-pergament-dim max-w-sm" data-i18n="rules.lead">Match and discard as many pairs as you can, and don’t be the one left holding the Schwarzer Peter when the game ends.</p>
           <dl class="mt-8 max-w-sm space-y-4 text-[15px]">
             <div class="pl-5 shadow-[inset_2px_0_0_#C6A15B]">
-              <dt class="font-semibold">The pairs</dt>
-              <dd class="text-pergament-dim">15 to 18 matching pairs, 30 to 36 cards depending on the deck.</dd>
+              <dt class="font-semibold" data-i18n="rules.pairs.title">The pairs</dt>
+              <dd class="text-pergament-dim" data-i18n="rules.pairs.text">15 to 18 matching pairs, 30 to 36 cards depending on the deck.</dd>
             </div>
             <div class="pl-5 shadow-[inset_2px_0_0_#E8622C]">
-              <dt class="font-semibold">The Schwarzer Peter</dt>
-              <dd class="text-pergament-dim">One single card with no partner. In our deck, it’s the black cat.</dd>
+              <dt class="font-semibold" data-i18n="rules.peter.title">The Schwarzer Peter</dt>
+              <dd class="text-pergament-dim" data-i18n="rules.peter.text">One single card with no partner. In our deck, it’s the black cat.</dd>
             </div>
           </dl>
           <div class="mt-10 flex items-end gap-3" aria-hidden="true">
@@ -132,23 +147,23 @@
         <ol class="grid sm:grid-cols-2 gap-x-10 gap-y-12">
           <li>
             <span class="font-display text-5xl text-messing">1</span>
-            <h3 class="mt-3 text-xl font-semibold">Deal and sort</h3>
-            <p class="mt-2 text-pergament-dim">The dealer shuffles and deals out every card. It’s normal for some players to get one more than others. Everyone lays any matching pairs face up on the table and keeps the rest hidden.</p>
+            <h3 class="mt-3 text-xl font-semibold" data-i18n="rules.step1.title">Deal and sort</h3>
+            <p class="mt-2 text-pergament-dim" data-i18n="rules.step1.text">The dealer shuffles and deals out every card. It’s normal for some players to get one more than others. Everyone lays any matching pairs face up on the table and keeps the rest hidden.</p>
           </li>
           <li>
             <span class="font-display text-5xl text-messing">2</span>
-            <h3 class="mt-3 text-xl font-semibold">Draw a card, clockwise</h3>
-            <p class="mt-2 text-pergament-dim">The player to the dealer’s left starts by holding out their cards face down to the next player, who picks one at random. A match is laid down face up. Otherwise the card stays in their hand.</p>
+            <h3 class="mt-3 text-xl font-semibold" data-i18n="rules.step2.title">Draw a card, clockwise</h3>
+            <p class="mt-2 text-pergament-dim" data-i18n="rules.step2.text">The player to the dealer’s left starts by holding out their cards face down to the next player, who picks one at random. A match is laid down face up. Otherwise the card stays in their hand.</p>
           </li>
           <li>
             <span class="font-display text-5xl text-messing">3</span>
-            <h3 class="mt-3 text-xl font-semibold">Pass it on</h3>
-            <p class="mt-2 text-pergament-dim">Whoever just drew now offers their own hidden cards to the next player. Hands shrink as pairs are laid down, and anyone who gets rid of all their cards is out and safe.</p>
+            <h3 class="mt-3 text-xl font-semibold" data-i18n="rules.step3.title">Pass it on</h3>
+            <p class="mt-2 text-pergament-dim" data-i18n="rules.step3.text">Whoever just drew now offers their own hidden cards to the next player. Hands shrink as pairs are laid down, and anyone who gets rid of all their cards is out and safe.</p>
           </li>
           <li>
             <span class="font-display text-5xl text-glut">4</span>
-            <h3 class="mt-3 text-xl font-semibold">The last one with the cat loses</h3>
-            <p class="mt-2 text-pergament-dim">Play goes on until only the Schwarzer Peter is left. The player holding it is the only loser.</p>
+            <h3 class="mt-3 text-xl font-semibold" data-i18n="rules.step4.title">The last one with the cat loses</h3>
+            <p class="mt-2 text-pergament-dim" data-i18n="rules.step4.text">Play goes on until only the Schwarzer Peter is left. The player holding it is the only loser.</p>
           </li>
         </ol>
       </div>
@@ -159,10 +174,10 @@
   <section id="deck" class="relative mx-auto max-w-6xl px-5 sm:px-8 py-[var(--s-section)] scroll-mt-0">
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
       <div>
-        <h2 class="h-display text-[clamp(2.2rem,4.4vw,3.4rem)]">The Alpine deck</h2>
-        <p class="mt-4 max-w-lg text-pergament-dim">Our first deck is drawn from the mountains: 18 pairs of animals you might meet on a hike, and one cat nobody wants.</p>
+        <h2 class="h-display text-[clamp(2.2rem,4.4vw,3.4rem)]" data-i18n="deck.title">The Alpine deck</h2>
+        <p class="mt-4 max-w-lg text-pergament-dim" data-i18n="deck.lead">Our first deck is drawn from the mountains: 18 pairs of animals you might meet on a hike, and one cat nobody wants.</p>
       </div>
-      <a href="deck.html" class="link font-semibold text-pergament self-start md:self-auto">See all 37 cards</a>
+      <a href="deck.html" class="link font-semibold text-pergament self-start md:self-auto" data-i18n="deck.all">See all 37 cards</a>
     </div>
 
     <div class="mt-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5">
@@ -179,29 +194,29 @@
   <section id="online" class="relative mx-auto max-w-6xl px-5 sm:px-8 pb-[var(--s-section)] scroll-mt-8">
     <div class="grid lg:grid-cols-[1fr_1.15fr] gap-12 lg:gap-16 items-center">
       <div>
-        <h2 class="h-display text-[clamp(2.2rem,4.4vw,3.4rem)]">Bluffing still works online</h2>
-        <p class="mt-4 max-w-md text-pergament-dim">At a real table, half the fun is the face someone makes when you reach for the cat. We built the online version around that moment.</p>
+        <h2 class="h-display text-[clamp(2.2rem,4.4vw,3.4rem)]" data-i18n="online.title">Bluffing still works online</h2>
+        <p class="mt-4 max-w-md text-pergament-dim" data-i18n="online.lead">At a real table, half the fun is the face someone makes when you reach for the cat. We built the online version around that moment.</p>
         <dl class="mt-10 space-y-7">
           <div class="pl-5 shadow-[inset_2px_0_0_#C6A15B]">
-            <dt class="text-lg font-semibold">Rearrange your hand anytime</dt>
-            <dd class="mt-1 text-pergament-dim">Move or shuffle your cards while your neighbour is choosing, so they never know where the cat is.</dd>
+            <dt class="text-lg font-semibold" data-i18n="online.f1.title">Rearrange your hand anytime</dt>
+            <dd class="mt-1 text-pergament-dim" data-i18n="online.f1.text">Move or shuffle your cards while your neighbour is choosing, so they never know where the cat is.</dd>
           </div>
           <div class="pl-5 shadow-[inset_2px_0_0_#C6A15B]">
-            <dt class="text-lg font-semibold">Watch their hand hover</dt>
-            <dd class="mt-1 text-pergament-dim">When it’s your neighbour’s turn, you see which card they’re about to take.</dd>
+            <dt class="text-lg font-semibold" data-i18n="online.f2.title">Watch their hand hover</dt>
+            <dd class="mt-1 text-pergament-dim" data-i18n="online.f2.text">When it’s your neighbour’s turn, you see which card they’re about to take.</dd>
           </div>
           <div class="pl-5 shadow-[inset_2px_0_0_#C6A15B]">
-            <dt class="text-lg font-semibold">React without typing</dt>
-            <dd class="mt-1 text-pergament-dim">Send a grin, a gasp or a shrug. No open chat, so it stays friendly for kids.</dd>
+            <dt class="text-lg font-semibold" data-i18n="online.f3.title">React without typing</dt>
+            <dd class="mt-1 text-pergament-dim" data-i18n="online.f3.text">Send a grin, a gasp or a shrug. No open chat, so it stays friendly for kids.</dd>
           </div>
         </dl>
       </div>
 
       <figure class="frame elev-2 rounded-[22px] [--r:22px] p-3 bg-kohle-raised">
         <div class="img-treat rounded-[16px] aspect-[4/3]">
-          <img src="https://placehold.co/880x660/2B3342/C6A15B?text=Game+table+preview&font=playfair-display" alt="Preview of a four-player game table">
+          <img src="https://placehold.co/880x660/2B3342/C6A15B?text=Game+table+preview&font=playfair-display" alt="Preview of a four-player game table" data-i18n-attr="alt:online.imgAlt">
           <figcaption class="absolute z-10 bottom-4 left-5 right-5 flex items-center justify-between gap-4 text-sm">
-            <span class="text-pergament">Lena is choosing a card from your hand</span>
+            <span class="text-pergament" data-i18n="online.caption">Lena is choosing a card from your hand</span>
             <span class="hidden sm:flex items-center gap-2 text-pergament-dim"><span class="w-2 h-2 rounded-full bg-glut"></span>Live</span>
           </figcaption>
         </div>
@@ -215,11 +230,11 @@
       <div class="absolute inset-0 bg-[radial-gradient(40rem_20rem_at_50%_0%,rgba(232,98,44,.22),transparent_70%),radial-gradient(30rem_18rem_at_10%_100%,rgba(198,161,91,.14),transparent_70%)]" aria-hidden="true"></div>
       <div class="relative">
         <div class="pips text-sm max-w-[14rem] mx-auto" aria-hidden="true"><span>♠ ♥ ♣ ♦</span></div>
-        <h2 class="mt-6 h-display text-[clamp(2.4rem,5vw,4rem)]">Deal me in</h2>
-        <p class="mt-4 mx-auto max-w-md text-pergament-dim">Start a room in a few seconds and send the link. No account needed for guests.</p>
+        <h2 class="mt-6 h-display text-[clamp(2.4rem,5vw,4rem)]" data-i18n="cta.title">Deal me in</h2>
+        <p class="mt-4 mx-auto max-w-md text-pergament-dim" data-i18n="cta.text">Start a room in a few seconds and send the link. No account needed for guests.</p>
         <div class="mt-9 flex flex-wrap justify-center gap-4">
-          <a href="/play.html?create=1" class="btn btn-glut text-base">Create a room</a>
-          <a href="/play.html" class="btn btn-line text-base">Practise against bots</a>
+          <a href="/play.html?create=1" class="btn btn-glut text-base" data-i18n="cta.createRoom">Create a room</a>
+          <a href="/play.html" class="btn btn-line text-base" data-i18n="cta.practise">Practise against bots</a>
         </div>
       </div>
     </div>
@@ -228,22 +243,22 @@
 
 <footer class="relative bg-russ/60 shadow-[inset_0_1px_0_rgba(198,161,91,.18)]">
   <div class="mx-auto max-w-6xl px-5 sm:px-8 py-12 grid gap-10 md:grid-cols-[auto_1fr_auto] md:items-start">
-    <a href="#" class="logo-mark ring-focus [--logo:120px] transition-transform duration-300 hover:-translate-y-0.5 active:scale-95" aria-label="Schwarzer Peter home"><img src="/brand_assets/logo-web.jpg" alt=""></a>
+    <a href="#" class="logo-mark ring-focus [--logo:120px] transition-transform duration-300 hover:-translate-y-0.5 active:scale-95" aria-label="Schwarzer Peter home" data-i18n-attr="aria-label:home.aria"><img src="/brand_assets/logo-web.jpg" alt=""></a>
     <ul class="flex flex-wrap gap-x-8 gap-y-3 text-[15px] md:justify-center md:pt-5">
-      <li><a class="link" href="#rules">Rules</a></li>
-      <li><a class="link" href="#">Help</a></li>
-      <li><a class="link" href="#">For parents</a></li>
-      <li><a class="link" href="#">Privacy</a></li>
-      <li><a class="link" href="#">Contact</a></li>
+      <li><a class="link" href="#rules" data-i18n="footer.rules">Rules</a></li>
+      <li><a class="link" href="#" data-i18n="footer.help">Help</a></li>
+      <li><a class="link" href="#" data-i18n="footer.parents">For parents</a></li>
+      <li><a class="link" href="#" data-i18n="footer.privacy">Privacy</a></li>
+      <li><a class="link" href="#" data-i18n="footer.contact">Contact</a></li>
     </ul>
     <div class="md:pt-5">
-      <label for="lang" class="sr-only">Language</label>
-      <select id="lang" class="ring-focus rounded-full bg-kohle-raised px-4 py-2 text-[15px] text-pergament shadow-[inset_0_0_0_1px_rgba(198,161,91,.35)] cursor-pointer hover:shadow-[inset_0_0_0_1px_#C6A15B] active:opacity-80">
-        <option>English</option><option>Deutsch</option><option>Français</option><option>Italiano</option>
+      <label for="lang" class="sr-only" data-i18n="lang.label">Language</label>
+      <select id="lang" data-lang-select class="ring-focus rounded-full bg-kohle-raised px-4 py-2 text-[15px] text-pergament shadow-[inset_0_0_0_1px_rgba(198,161,91,.35)] cursor-pointer hover:shadow-[inset_0_0_0_1px_#C6A15B] active:opacity-80">
+        <option value="en">English</option><option value="de">Deutsch</option>
       </select>
     </div>
   </div>
-  <p class="mx-auto max-w-6xl px-5 sm:px-8 pb-10 text-sm text-pergament-mute">© 2026 Schwarzer Peter. Made in Sassland.</p>
+  <p class="mx-auto max-w-6xl px-5 sm:px-8 pb-10 text-sm text-pergament-mute"><span data-i18n="footer.copyright">© 2026 Schwarzer Peter. Made in Sassland.</span></p>
 </footer>
 </body>
 </html>

@@ -38,6 +38,10 @@ To try an online game locally, run both dev commands, create a room at http://lo
 
 Either way, `src/play/Table.tsx` gets its game as a stream of steps (`deal`, `action`, `hover`, `sync`) from a `GameHost`. It plays them one at a time with card animations, and it only ever receives what this player may see. The practice host waits for the table's `ready()` before a bot moves. The online host (`src/play/room-client.ts`) gets steps from the server, which sets the pace itself.
 
+## Languages
+
+The site is in English and German. All text lives in `apps/web/src/i18n.ts`. Static pages are written in English, and each translated element carries `data-i18n="key"` (or `data-i18n-attr="attr:key"` for attributes); German visitors see the German text before the page appears. The game calls `t(key)` and `tn(key, n)` for plurals. The language comes from `?lang=`, then the saved choice (`sp.lang`), then the browser language. The EN/DE switch saves the choice and reloads. To add text, add the English and German entries in `i18n.ts`; to add a language, add its dictionary there and to `LANGS`.
+
 ## The game server
 
 `apps/server/src/room.ts` holds all room logic as plain functions (join, start, draw, leave, timers) and is tested in Node. `apps/server/src/worker.ts` wraps it in a Durable Object: it stores the room after every change, delivers messages over hibernating WebSockets, and uses the alarm for bot moves and timeouts.

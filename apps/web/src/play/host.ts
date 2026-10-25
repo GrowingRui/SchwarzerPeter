@@ -10,6 +10,7 @@ import {
   type PlayerId,
 } from '@sp/engine';
 import type { Step } from '@sp/engine/protocol';
+import { t } from '../i18n';
 
 /**
  * Where the table gets its steps from: a practice game in the browser, or a
@@ -40,7 +41,7 @@ export function createPracticeGame(settings: PracticeSettings): GameHost {
   const rng = new Rng(seed ^ 0x5bd1e995);
   const names = rng.shuffle([...BOT_NAMES]).slice(0, settings.bots);
   const players = [
-    { id: YOU, name: settings.name.trim() || 'You' },
+    { id: YOU, name: settings.name.trim() || t('you') },
     ...names.map((name, i) => ({ id: `bot${i + 1}`, name })),
   ];
 

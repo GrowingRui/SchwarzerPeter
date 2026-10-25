@@ -4,7 +4,8 @@ import type { PlayerId } from '@sp/engine';
 import { RoomClient, createRoom } from './room-client';
 import { PLAY_PATH, roomLink, saveName, savedName } from './config';
 import { Table } from './Table';
-import { TopBar } from './Setup';
+import { TopBar, useDocumentTitle } from './Setup';
+import { t } from '../i18n';
 
 /* ------------------------------------------------------------------ */
 /* Create a room                                                       */
@@ -12,6 +13,7 @@ import { TopBar } from './Setup';
 
 export function CreateRoom() {
   const [name, setName] = useState(savedName);
+  useDocumentTitle(`${t('create.title')}: Schwarzer Peter`);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +28,7 @@ export function CreateRoom() {
       location.replace(`${PLAY_PATH}?room=${code}`);
     } catch {
       setBusy(false);
-      setError('The game server didn’t answer. Check your connection and try again.');
+      setError(t('create.error'));
     }
   };
 
@@ -34,10 +36,8 @@ export function CreateRoom() {
     <Screen>
       <form onSubmit={submit} className="panel frame elev-2">
         <Glow />
-        <h1 className="h-display relative text-[clamp(2.2rem,6vw,3.2rem)]">Play with friends</h1>
-        <p className="relative mt-3 max-w-md text-pergament-dim">
-          Create a room, then send the link. Everyone joins from their own phone or computer.
-        </p>
+        <h1 className="h-display relative text-[clamp(2.2rem,6vw,3.2rem)]">{t('create.title')}</h1>
+        <p className="relative mt-3 max-w-md text-pergament-dim">{t('create.lead')}</p>
         <NameField value={name} onChange={setName} />
         {error && (
           <p className="relative mt-6 text-glut" role="alert">
@@ -46,10 +46,10 @@ export function CreateRoom() {
         )}
         <div className="relative mt-10 flex flex-wrap items-center gap-5">
           <button type="submit" className="btn btn-glut text-base" disabled={busy}>
-            {busy ? 'Creating room…' : 'Create room'}
+            {busy ? t('create.busy') : t('create.button')}
           </button>
           <a href={PLAY_PATH} className="link text-[15px]">
-            Practise against bots instead
+            {t('create.practise')}
           </a>
         </div>
       </form>
@@ -63,14 +63,14 @@ export function CreateRoom() {
 
 export function OnlineGame({ code }: { code: string }) {
   const client = useMemo(() => new RoomClient(code), [code]);
+  useDocumentTitle(t('room.docTitle', { code }));
   const snap = useSyncExternalStore(client.subscribe, client.getSnapshot);
 
   useEffect(() => {
-    document.title = `Room ${code}: Schwarzer Peter`;
     const invited = sessionStorage.getItem('sp.autojoin') === code;
     sessionStorage.removeItem('sp.autojoin');
     // Rejoin straight away if this browser already has a seat, or just created the room.
-    if (client.hasSeat || invited) client.join(savedName() || 'Player');
+    if (client.hasSeat || invited) client.join(savedName() || t('player'));
     return () => client.close();
   }, [client, code]);
 
@@ -84,9 +84,9 @@ export function OnlineGame({ code }: { code: string }) {
   if (snap.fatal) return <RoomProblem code={snap.fatal.code} />;
   if (!snap.joined) {
     if (snap.status === 'idle') return <JoinRoom code={code} onJoin={(name) => client.join(name)} />;
-    return <Waiting text={`Joining room ${code}…`} />;
+    return <Waiting text={t('room.joining', { code })} />;
   }
-  if (!snap.room || !host) return <Waiting text={`Joining room ${code}…`} />;
+  if (!snap.room || !host) return <Waiting text={t('room.joining', { code })} />;
 
   const leave = () => {
     client.leave();
@@ -105,11 +105,11 @@ export function OnlineGame({ code }: { code: string }) {
           host={host}
           offline={offline}
           onLeave={leave}
-          leaveNote="A bot takes your seat for the rest of this round."
+          leaveNote={t('leave.onlineNote')}
           result={
             iAmHost
-              ? { primary: { label: 'Play again', onClick: () => client.send({ t: 'again' }) } }
-              : { note: `Waiting for ${hostMember?.name ?? 'the host'} to start another round.` }
+              ? { primary: { label: t('result.again'), onClick: () => client.send({ t: 'again' }) } }
+              : { note: t('room.waitAgain', { name: hostMember?.name ?? t('room.theHost') }) }
           }
         />
       )}
@@ -122,22 +122,22 @@ function JoinRoom({ code, onJoin }: { code: string; onJoin: (name: string) => vo
   const [name, setName] = useState(savedName);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    onJoin(name.trim() || 'Player');
+    onJoin(name.trim() || t('player'));
   };
   return (
     <Screen>
       <form onSubmit={submit} className="panel frame elev-2">
         <Glow />
-        <p className="relative text-sm text-pergament-dim">You’re invited to room</p>
+        <p className="relative text-sm text-pergament-dim">{t('join.invited')}</p>
         <p className="room-code relative mt-1">{code}</p>
-        <p className="relative mt-4 max-w-md text-pergament-dim">Pick a name so the others know who you are.</p>
+        <p className="relative mt-4 max-w-md text-pergament-dim">{t('join.lead')}</p>
         <NameField value={name} onChange={setName} autoFocus />
         <div className="relative mt-10 flex flex-wrap items-center gap-5">
           <button type="submit" className="btn btn-glut text-base">
-            Join room
+            {t('join.button')}
           </button>
           <a href="/#rules" className="link text-[15px]">
-            How to play
+            {t('join.rules')}
           </a>
         </div>
       </form>
@@ -171,15 +171,13 @@ function Lobby({ room, you, onStart, onLeave }: { room: RoomInfo; you: PlayerId;
     <Screen>
       <div className="panel frame elev-2 max-w-2xl">
         <Glow />
-        <p className="relative text-sm text-pergament-dim">Room code</p>
+        <p className="relative text-sm text-pergament-dim">{t('lobby.code')}</p>
         <p className="room-code relative mt-1">{room.code}</p>
-        <p className="relative mt-4 max-w-md text-pergament-dim">
-          Send this link to your friends. Up to {room.maxPlayers} players can sit at the table.
-        </p>
+        <p className="relative mt-4 max-w-md text-pergament-dim">{t('lobby.lead', { n: room.maxPlayers })}</p>
 
         <div className="relative mt-6 flex flex-col gap-3 sm:flex-row">
           <label htmlFor="room-link" className="sr-only">
-            Room link
+            {t('lobby.link')}
           </label>
           <input
             id="room-link"
@@ -190,11 +188,11 @@ function Lobby({ room, you, onStart, onLeave }: { room: RoomInfo; you: PlayerId;
           />
           <div className="flex gap-3">
             <button type="button" className="btn btn-glut flex-1 sm:flex-none" onClick={copy}>
-              {copied ? 'Link copied' : 'Copy link'}
+              {copied ? t('lobby.copied') : t('lobby.copy')}
             </button>
             {canShare && (
-              <button type="button" className="btn btn-line flex-1 sm:flex-none" onClick={() => navigator.share({ title: 'Schwarzer Peter', text: `Join my game of Schwarzer Peter: room ${room.code}`, url: link }).catch(() => undefined)}>
-                Share
+              <button type="button" className="btn btn-line flex-1 sm:flex-none" onClick={() => navigator.share({ title: 'Schwarzer Peter', text: t('lobby.shareText', { code: room.code }), url: link }).catch(() => undefined)}>
+                {t('lobby.share')}
               </button>
             )}
           </div>
@@ -203,10 +201,10 @@ function Lobby({ room, you, onStart, onLeave }: { room: RoomInfo; you: PlayerId;
         <section className="relative mt-10" aria-labelledby="table-title">
           <div className="flex items-baseline justify-between gap-4">
             <h2 id="table-title" className="h-display text-2xl">
-              At the table
+              {t('lobby.table')}
             </h2>
             <p className="text-sm text-pergament-mute">
-              {total} of {room.maxPlayers} seats
+              {t('lobby.seats', { n: total, max: room.maxPlayers })}
             </p>
           </div>
           <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
@@ -217,7 +215,7 @@ function Lobby({ room, you, onStart, onLeave }: { room: RoomInfo; you: PlayerId;
                 </span>
                 <span className="min-w-0 flex-1 truncate font-semibold">{m.name}</span>
                 <span className="text-xs text-pergament-mute">
-                  {[m.id === you ? 'you' : '', m.isHost ? 'host' : '', m.connected ? '' : 'away'].filter(Boolean).join(', ')}
+                  {[m.id === you ? t('lobby.tagYou') : '', m.isHost ? t('lobby.tagHost') : '', m.connected ? '' : t('lobby.tagAway')].filter(Boolean).join(', ')}
                 </span>
               </li>
             ))}
@@ -226,8 +224,8 @@ function Lobby({ room, you, onStart, onLeave }: { room: RoomInfo; you: PlayerId;
                 <span className="avatar avatar-bot" aria-hidden="true">
                   B
                 </span>
-                <span className="flex-1 font-semibold text-pergament-dim">Bot</span>
-                <span className="text-xs text-pergament-mute">joins at the start</span>
+                <span className="flex-1 font-semibold text-pergament-dim">{t('lobby.bot')}</span>
+                <span className="text-xs text-pergament-mute">{t('lobby.botJoins')}</span>
               </li>
             ))}
           </ul>
@@ -237,32 +235,32 @@ function Lobby({ room, you, onStart, onLeave }: { room: RoomInfo; you: PlayerId;
           <div className="relative mt-8">
             <div className="flex flex-wrap items-center gap-4">
               <span id="bots-label" className="text-sm text-pergament-dim">
-                Fill empty seats with bots
+                {t('lobby.fillBots')}
               </span>
               <div className="stepper" role="group" aria-labelledby="bots-label">
-                <button type="button" onClick={() => setBots(Math.max(0, bots - 1))} disabled={bots === 0} aria-label="One bot fewer">
+                <button type="button" onClick={() => setBots(Math.max(0, bots - 1))} disabled={bots === 0} aria-label={t('lobby.fewer')}>
                   −
                 </button>
                 <span aria-live="polite">{bots}</span>
-                <button type="button" onClick={() => setBots(Math.min(maxBots, bots + 1))} disabled={bots >= maxBots} aria-label="One bot more">
+                <button type="button" onClick={() => setBots(Math.min(maxBots, bots + 1))} disabled={bots >= maxBots} aria-label={t('lobby.more')}>
                   +
                 </button>
               </div>
             </div>
             <div className="mt-8 flex flex-wrap items-center gap-5">
               <button type="button" className="btn btn-glut text-base" disabled={total < 2} onClick={() => onStart(bots)}>
-                Start the game
+                {t('lobby.start')}
               </button>
-              {total < 2 && <p className="text-sm text-pergament-mute">Invite a friend or add a bot to start.</p>}
+              {total < 2 && <p className="text-sm text-pergament-mute">{t('lobby.needTwo')}</p>}
             </div>
           </div>
         ) : (
-          <p className="relative mt-8 text-pergament-dim">Waiting for {host?.name ?? 'the host'} to start the game.</p>
+          <p className="relative mt-8 text-pergament-dim">{t('lobby.waiting', { name: host?.name ?? t('room.theHost') })}</p>
         )}
 
         <p className="relative mt-8 text-sm">
           <button type="button" className="link" onClick={onLeave}>
-            Leave room
+            {t('lobby.leave')}
           </button>
         </p>
       </div>
@@ -274,14 +272,12 @@ function Lobby({ room, you, onStart, onLeave }: { room: RoomInfo; you: PlayerId;
 /* Problems and small pieces                                           */
 /* ------------------------------------------------------------------ */
 
-const PROBLEMS: Partial<Record<ErrorCode, { title: string; text: string }>> = {
-  ROOM_NOT_FOUND: { title: 'This room doesn’t exist', text: 'Check the code you were sent, or create a new room.' },
-  ROOM_FULL: { title: 'This room is full', text: 'A game has at most 6 players. Ask the host for a new room, or create your own.' },
-  GAME_IN_PROGRESS: { title: 'This game has already started', text: 'You can join the next round once the host takes everyone back to the room, or create your own room.' },
-};
+const PROBLEMS: readonly ErrorCode[] = ['ROOM_NOT_FOUND', 'ROOM_FULL', 'GAME_IN_PROGRESS'];
 
 export function RoomProblem({ code }: { code: ErrorCode }) {
-  const problem = PROBLEMS[code] ?? PROBLEMS.ROOM_NOT_FOUND!;
+  const key = PROBLEMS.includes(code) ? code : 'ROOM_NOT_FOUND';
+  const problem = { title: t(`problem.${key}.title`), text: t(`problem.${key}.text`) };
+  useDocumentTitle(`${problem.title}: Schwarzer Peter`);
   return (
     <Screen>
       <div className="panel frame elev-2">
@@ -290,10 +286,10 @@ export function RoomProblem({ code }: { code: ErrorCode }) {
         <p className="relative mt-3 max-w-md text-pergament-dim">{problem.text}</p>
         <div className="relative mt-10 flex flex-wrap items-center gap-4">
           <a href={`${PLAY_PATH}?create=1`} className="btn btn-glut text-base">
-            Create a new room
+            {t('problem.create')}
           </a>
           <a href={PLAY_PATH} className="btn btn-line text-base">
-            Practise against bots
+            {t('problem.practise')}
           </a>
         </div>
       </div>
@@ -312,7 +308,7 @@ function Waiting({ text }: { text: string }) {
 }
 
 function ConnectionPill({ reconnecting, notice }: { reconnecting: boolean; notice: string | null }) {
-  const text = reconnecting ? 'Connection lost. Reconnecting…' : notice;
+  const text = reconnecting ? t('conn.reconnecting') : notice;
   return (
     <div className="pointer-events-none fixed inset-x-0 top-4 z-[95] flex justify-center px-4" role="status" aria-live="polite">
       {text && <p className="pill">{text}</p>}
@@ -324,7 +320,7 @@ function NameField({ value, onChange, autoFocus }: { value: string; onChange: (v
   return (
     <div className="relative mt-8">
       <label htmlFor="player-name" className="block text-sm text-pergament-dim">
-        Your name
+        {t('setup.name')}
       </label>
       <input
         id="player-name"
@@ -333,7 +329,7 @@ function NameField({ value, onChange, autoFocus }: { value: string; onChange: (v
         maxLength={16}
         autoComplete="nickname"
         autoFocus={autoFocus}
-        placeholder="Player"
+        placeholder={t('player')}
         className="mt-2.5 w-full max-w-xs rounded-full bg-russ/70 px-5 py-3 font-semibold text-pergament shadow-[inset_0_0_0_1px_rgba(198,161,91,.35),inset_0_2px_6px_rgba(0,0,0,.4)] placeholder:text-pergament-mute/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-messing"
       />
     </div>
@@ -343,7 +339,7 @@ function NameField({ value, onChange, autoFocus }: { value: string; onChange: (v
 function Screen({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh flex flex-col">
-      <TopBar />
+      <TopBar showLanguage />
       <main className="flex-1 grid place-items-center px-5 pb-16 pt-4">{children}</main>
     </div>
   );

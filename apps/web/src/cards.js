@@ -1,6 +1,8 @@
 /* Schwarzer Peter: Alpine deck card art.
    Every card is an inline SVG so it scales cleanly and uses the page fonts.
    Usage: <div data-card="steinbock"></div>, then mountAll(). */
+import { t } from './i18n';
+
 const N = '#1E2430';   // Kohle
 const N2 = '#3A4354';  // far limbs, shading
 const E = '#E8622C';   // Glut
@@ -324,7 +326,7 @@ function ribbon(name, fill, text) {
 
 function animalCard(c) {
   const id = 'spc' + ++uid;
-  return `<svg viewBox="0 0 250 350" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${c.name}, card ${c.num} of 18 pairs">
+  return `<svg viewBox="0 0 250 350" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${t('card.ariaNumbered', { name: c.name, n: c.num })}">
     ${frame(id, false)}
     <g clip-path="url(#${id}-win)"><g transform="translate(32 48) scale(.93)">
       ${scenery(id, c.opts)}
@@ -343,7 +345,7 @@ function peterCard() {
   const id = 'spc' + ++uid;
   const stars = [[30, 40], [64, 22], [150, 30], [176, 66], [118, 54], [20, 92], [184, 112], [92, 30]]
     .map(([x, y], i) => star(x, y, i % 3 ? .6 : .9, B)).join('');
-  return `<svg viewBox="0 0 250 350" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Schwarzer Peter, the black cat">
+  return `<svg viewBox="0 0 250 350" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${t('card.peterAria')}">
     ${frame(id, true)}
     <defs><linearGradient id="${id}-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#232A38"/><stop offset="1" stop-color="#3D4659"/></linearGradient></defs>
     <g clip-path="url(#${id}-win)"><g transform="translate(32 48) scale(.93)">

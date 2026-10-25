@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createPracticeGame, type GameHost, type PracticeSettings } from './host';
 import { Setup } from './Setup';
 import { Table } from './Table';
+import { t } from '../i18n';
 
 const STORAGE_KEY = 'sp.practice';
 
@@ -39,7 +40,8 @@ export function App() {
     <Table
       key={round}
       host={host}
-      result={{ primary: { label: 'Play again', onClick: () => start(settings) }, secondary: { label: 'Change players', onClick: () => setHost(null) } }}
+      result={{ primary: { label: t('result.again'), onClick: () => start(settings) }, secondary: { label: t('result.changePlayers'), onClick: () => setHost(null) } }}
+leaveNote={t('leave.practiceNote')}
     />
   );
 }

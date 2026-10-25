@@ -6,6 +6,7 @@ import type { GameHost } from './host';
 import { CardBack, CardFace, cardName } from './cards';
 import { fly, rectOf, setTempo, wait } from './fly';
 import { TopBar } from './Setup';
+import { ordinal, t, tn } from '../i18n';
 
 type Phase = 'dealing' | 'playing' | 'over';
 interface Message {
@@ -41,14 +42,14 @@ const goHome = () => {
   location.href = '/';
 };
 
-export function Table({ host, result, onLeave = goHome, leaveNote = 'The round ends and can’t be picked up again.', offline }: TableProps) {
+export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.practiceNote'), offline }: TableProps) {
   const you = host.you;
   const [view, setView] = useState<PlayerView | null>(null);
   const [extra, setExtra] = useState<readonly Card[]>([]); // pairs you were dealt, shown before they go down
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [hiddenPairs, setHiddenPairs] = useState(0);
   const [hover, setHover] = useState<number | null>(null);
-  const [message, setMessage] = useState<Message>({ text: 'Shuffling the deck…' });
+  const [message, setMessage] = useState<Message>(() => ({ text: t('table.shuffling') }));
   const [phase, setPhase] = useState<Phase>('dealing');
   const [busy, setBusy] = useState(true);
   const [showResult, setShowResult] = useState(false);
@@ -66,30 +67,27 @@ export function Table({ host, result, onLeave = goHome, leaveNote = 'The round e
       viewRef.current = v;
       setView(v);
     };
-    const nameOf = (id: PlayerId) => (id === you ? 'you' : viewRef.current?.seats.find((s) => s.id === id)?.name ?? id);
-    const Name = (id: PlayerId) => (id === you ? 'You' : nameOf(id));
+    const nameOf = (id: PlayerId) => viewRef.current?.seats.find((s) => s.id === id)?.name ?? id;
 
     async function afterEvents(events: readonly GameEvent[]) {
       for (const e of events) {
         if (e.type === 'playerOut') {
-          setMessage(e.playerId === you ? { text: 'You’re out of cards. Safe!', tone: 'good' } : { text: `${nameOf(e.playerId)} is out of cards and safe.` });
+          setMessage(e.playerId === you ? { text: t('table.youOut'), tone: 'good' } : { text: t('table.playerOut', { name: nameOf(e.playerId) }) });
           await wait(1000);
           if (e.playerId === you) setTempo(0.55);
         } else if (e.type === 'gameOver') {
           setPhase('over');
           setMessage(
             e.loser === you
-              ? { text: 'You’re left with the Schwarzer Peter.', tone: 'peter' }
-              : { text: `${nameOf(e.loser)} is left with the Schwarzer Peter.`, tone: 'good' },
+              ? { text: t('table.youLost'), tone: 'peter' }
+              : { text: t('table.playerLost', { name: nameOf(e.loser) }), tone: 'good' },
           );
           await wait(1300);
           if (alive) setShowResult(true);
         } else if (e.type === 'nextTurn') {
           setPhase('playing');
           setMessage(
-            e.drawer === you
-              ? { text: `Your turn. Draw a card from ${nameOf(e.offerer)}.` }
-              : { text: `${nameOf(e.drawer)} draws from ${nameOf(e.offerer)}.` },
+            turnMessage(e.drawer, e.offerer),
           );
         }
       }
@@ -102,12 +100,12 @@ export function Table({ host, result, onLeave = goHome, leaveNote = 'The round e
         show(step.view);
         setExtra(mine.flatMap((e) => [...e.cards]));
         setHiddenPairs(step.view.pairs.length);
-        setMessage({ text: 'Dealing the cards…' });
+        setMessage({ text: t('table.dealing') });
       });
       await wait(1500);
 
       if (mine.length) {
-        setMessage({ text: `You were dealt ${mine.length} ${mine.length === 1 ? 'pair' : 'pairs'}. Down they go.`, tone: 'good' });
+        setMessage({ text: tn('table.dealtPairs', mine.length), tone: 'good' });
         await wait(900);
         for (const e of mine) {
           const from = e.cards.map((c) => rectOf(handCard(c.id)));
@@ -119,7 +117,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = 'The round e
       }
       const others = pairs.filter((e) => e.playerId !== you);
       if (others.length) {
-        setMessage({ text: 'Everyone lays down the pairs they were dealt.' });
+        setMessage({ text: t('table.othersLayDown') });
         await Promise.all(
           others.map(async (e, i) => {
             await wait(i * 160);
@@ -185,20 +183,25 @@ export function Table({ host, result, onLeave = goHome, leaveNote = 'The round e
       await afterEvents(step.events);
     }
 
+    function turnMessage(drawer: PlayerId, offerer: PlayerId): Message {
+      if (drawer === you) return { text: t('table.yourTurn', { name: nameOf(offerer) }) };
+      return { text: offerer === you ? t('table.drawsFromYou', { drawer: nameOf(drawer) }) : t('table.drawsFrom', { drawer: nameOf(drawer), offerer: nameOf(offerer) }) };
+    }
+
     function drawMessage(drawn: CardDrawn, pair: PairLaidDown | null): Message {
       const face = drawn.card?.face;
       const what = face ? cardName(face) : '';
+      const name = nameOf(drawn.drawer);
       if (drawn.drawer === you) {
-        if (face === PETER) return { text: 'You drew the Schwarzer Peter!', tone: 'peter' };
-        return pair ? { text: `You drew the ${what}. That’s a pair!`, tone: 'good' } : { text: `You drew the ${what}.` };
+        if (face === PETER) return { text: t('draw.youPeter'), tone: 'peter' };
+        return pair ? { text: t('draw.youPair', { card: what }), tone: 'good' } : { text: t('draw.you', { card: what }) };
       }
       if (drawn.offerer === you) {
-        if (face === PETER) return { text: `${Name(drawn.drawer)} took the Schwarzer Peter from you!`, tone: 'good' };
-        return pair ? { text: `${Name(drawn.drawer)} took your ${what} and made a pair.` } : { text: `${Name(drawn.drawer)} took your ${what}.` };
+        if (face === PETER) return { text: t('draw.tookPeter', { name }), tone: 'good' };
+        return { text: t(pair ? 'draw.tookYourPair' : 'draw.tookYour', { name, card: what }) };
       }
-      return pair
-        ? { text: `${Name(drawn.drawer)} drew from ${nameOf(drawn.offerer)} and made a pair: ${cardName(pair.cards[0].face)}.` }
-        : { text: `${Name(drawn.drawer)} drew a card from ${nameOf(drawn.offerer)}.` };
+      const other = nameOf(drawn.offerer);
+      return pair ? { text: t('draw.otherPair', { name, other, card: cardName(pair.cards[0].face) }) } : { text: t('draw.other', { name, other }) };
     }
 
     /** Jump straight to a view, e.g. after reconnecting to an online game. */
@@ -212,10 +215,10 @@ export function Table({ host, result, onLeave = goHome, leaveNote = 'The round e
         setPhase(view.phase === 'over' ? 'over' : 'playing');
       });
       if (view.phase === 'over' && view.loser) {
-        setMessage(view.loser === you ? { text: 'You’re left with the Schwarzer Peter.', tone: 'peter' } : { text: `${nameOf(view.loser)} is left with the Schwarzer Peter.`, tone: 'good' });
+        setMessage(view.loser === you ? { text: t('table.youLost'), tone: 'peter' } : { text: t('table.playerLost', { name: nameOf(view.loser) }), tone: 'good' });
         setShowResult(true);
       } else if (view.drawer && view.offerer) {
-        setMessage(view.drawer === you ? { text: `Your turn. Draw a card from ${nameOf(view.offerer)}.` } : { text: `${nameOf(view.drawer)} draws from ${nameOf(view.offerer)}.` });
+        setMessage(turnMessage(view.drawer, view.offerer));
       }
     }
 
@@ -224,7 +227,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = 'The round e
       if (step.kind === 'action') return playAction(step);
       if (step.kind === 'sync') return playSync(step.view);
       setHover(step.slot);
-      setMessage({ text: `${nameOf(step.playerId)} is choosing one of your cards…` });
+      setMessage({ text: t('table.choosing', { name: nameOf(step.playerId) }) });
       await wait(430);
     }
 
@@ -273,16 +276,16 @@ export function Table({ host, result, onLeave = goHome, leaveNote = 'The round e
     <div className="flex h-dvh min-h-[640px] flex-col overflow-hidden">
       <TopBar>
         <p className="hidden text-sm text-pergament-dim sm:block">
-          <span className="font-semibold text-pergament">{visiblePairs.length}</span> of {ALPINE_DECK.length} pairs down
+          <span className="font-semibold text-pergament">{visiblePairs.length}</span> {t('table.pairsDown', { total: ALPINE_DECK.length })}
         </p>
         <button type="button" className="btn btn-line px-5 py-2.5 text-[15px]" onClick={() => (phase === 'over' ? onLeave() : setConfirmLeave(true))}>
-          Leave game
+          {t('table.leave')}
         </button>
       </TopBar>
 
       <main className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col px-3 sm:px-8">
-        <section className="table-surface frame elev-2 relative flex-1 rounded-[40px] [--r:40px]" aria-label="Game table">
-          <ol className="seats" aria-label="Other players">
+        <section className="table-surface frame elev-2 relative flex-1 rounded-[40px] [--r:40px]" aria-label={t('table.aria')}>
+          <ol className="seats" aria-label={t('table.others')}>
             {opponents.map((s, i) => {
               const angle = Math.PI - ((i + 1) * Math.PI) / (opponents.length + 1);
               const style = { '--x': `${50 + Math.cos(angle) * 40}%`, '--y': `${46 - Math.sin(angle) * 32}%` } as CSSProperties;
@@ -323,20 +326,20 @@ export function Table({ host, result, onLeave = goHome, leaveNote = 'The round e
           </div>
         </section>
 
-        <section className="your-side" aria-label="Your hand">
+        <section className="your-side" aria-label={t('table.yourHand')}>
           <Hand cards={[...view.hand, ...extra]} dealtPairs={extra} hidden={hidden} hover={hover} dealing={phase === 'dealing'} you={you} />
           <p className="mt-1 text-center text-sm text-pergament-mute">
             {me.isOut
-              ? `You’re out and safe, ${ordinal(placeOf(me.id))} to finish`
+              ? t('status.out', { ord: ordinal(placeOf(me.id)), n: placeOf(me.id) })
               : view.loser === me.id
-                ? 'You kept the cat'
+                ? t('status.keptCat')
                 : phase === 'dealing'
-                  ? 'Your cards'
+                  ? t('status.dealing')
                   : view.drawer === me.id
-                    ? 'Your turn to draw'
+                    ? t('status.drawing')
                     : view.offerer === me.id
-                      ? 'You’re holding out your cards'
-                      : `You hold ${me.cardCount} ${me.cardCount === 1 ? 'card' : 'cards'}`}
+                      ? t('status.offering')
+                      : tn('status.hold', me.cardCount)}
           </p>
         </section>
       </main>
@@ -362,16 +365,16 @@ function Seat(props: {
 }) {
   const { id, name, index, count, role, place, loser, offline, style } = props;
   const status = loser
-    ? 'kept the cat'
+    ? t('seat.keptCat')
     : place
-      ? `safe, ${ordinal(place)} out`
+      ? t('seat.safe', { ord: ordinal(place), n: place })
       : offline
-        ? 'offline, cards drawn for them'
+        ? t('seat.offline')
         : role === 'drawer'
-          ? 'drawing'
+          ? t('seat.drawing')
           : role === 'offerer'
-            ? 'holding out cards'
-            : `${count} ${count === 1 ? 'card' : 'cards'}`;
+            ? t('seat.offering')
+            : tn('seat.cards', count);
   return (
     <li className={`seat ${role ? `is-${role}` : ''} ${place ? 'is-out' : ''} ${loser ? 'is-loser' : ''} ${offline && !place ? 'is-offline' : ''}`} style={style}>
       <div className="flex items-center gap-2.5">
@@ -395,7 +398,7 @@ function Seat(props: {
 function Pile({ pairs }: { pairs: readonly { cards: readonly [Card, Card] }[] }) {
   const shown = pairs.slice(-6);
   return (
-    <div className="pile" aria-label={`${pairs.length} pairs on the table`}>
+    <div className="pile" aria-label={t('pile.aria', { n: pairs.length })}>
       <div className="pile-stack">
         {shown.map((p, i) => {
           const n = pairs.length - shown.length + i;
@@ -409,7 +412,7 @@ function Pile({ pairs }: { pairs: readonly { cards: readonly [Card, Card] }[] })
         })}
         <span className="pile-target" data-pile-target aria-hidden="true" />
       </div>
-      <p className="mt-2 text-center text-xs text-pergament-mute">{pairs.length ? `${pairs.length} ${pairs.length === 1 ? 'pair' : 'pairs'} down` : 'No pairs yet'}</p>
+      <p className="mt-2 text-center text-xs text-pergament-mute">{pairs.length ? tn('pile.down', pairs.length) : t('pile.none')}</p>
     </div>
   );
 }
@@ -421,7 +424,7 @@ function OfferFan({ count, from, enabled, onPick }: { count: number; from: strin
   const step = count > 1 ? Math.min(w * 0.62, (width - w) / (count - 1)) : 0;
   const total = w + step * (count - 1);
   return (
-    <div className="offer" role="group" aria-label={`${from}'s cards, face down`}>
+    <div className="offer" role="group" aria-label={t('offer.aria', { name: from })}>
       <div ref={ref} className="offer-fan" style={{ height: w * 1.4 + 36 }}>
         {Array.from({ length: count }, (_, i) => {
           const mid = (count - 1) / 2;
@@ -434,7 +437,7 @@ function OfferFan({ count, from, enabled, onPick }: { count: number; from: strin
               data-offer-slot={i}
               disabled={!enabled}
               onClick={() => onPick(i)}
-              aria-label={`Card ${i + 1} of ${count} from ${from}`}
+              aria-label={t('offer.card', { i: i + 1, n: count, name: from })}
               style={{ width: w, transform: `translate(${(width - total) / 2 + i * step}px, ${Math.abs(i - mid) * 2.2}px) rotate(${rot}deg)`, zIndex: i }}
             >
               <CardBack />
@@ -505,30 +508,30 @@ function Result({ view, you, actions }: { view: PlayerView; you: PlayerId; actio
           <CardFace card={peter} className="result-card" />
         </div>
         <h2 id="result-title" className="h-display mt-7 text-center text-[clamp(2rem,5vw,2.8rem)]">
-          {lost ? 'You kept the cat' : 'You’re safe!'}
+          {lost ? t('result.lostTitle') : t('result.wonTitle')}
         </h2>
         <p className="mx-auto mt-3 max-w-sm text-center text-pergament-dim">
           {lost
-            ? 'The Schwarzer Peter stayed with you this round. By tradition, that earns you a smudge of soot on the nose.'
-            : `${loser?.name ?? 'Someone'} is left holding the Schwarzer Peter. You were ${ordinal(place)} out of cards.`}
+            ? t('result.lostText')
+            : t('result.wonText', { loser: loser?.name ?? t('result.someone'), ord: ordinal(place), n: place })}
         </p>
         <ol className="mx-auto mt-7 max-w-xs space-y-1.5 text-[15px]">
           {view.finishOrder.map((id, i) => (
             <li key={id} className="flex justify-between gap-4">
               <span>
                 <span className="mr-2 font-display text-messing">{i + 1}</span>
-                {id === you ? 'You' : view.seats.find((s) => s.id === id)?.name}
+                {id === you ? t('you') : view.seats.find((s) => s.id === id)?.name}
               </span>
-              <span className="text-pergament-mute">safe</span>
+              <span className="text-pergament-mute">{t('result.safe')}</span>
             </li>
           ))}
           {loser && (
             <li className="flex justify-between gap-4 text-glut">
               <span>
                 <span className="mr-2 font-display">{view.seats.length}</span>
-                {loser.id === you ? 'You' : loser.name}
+                {loser.id === you ? t('you') : loser.name}
               </span>
-              <span>kept the cat</span>
+              <span>{t('result.keptCat')}</span>
             </li>
           )}
         </ol>
@@ -549,7 +552,7 @@ function Result({ view, you, actions }: { view: PlayerView; you: PlayerId; actio
         {actions.note && <p className="mt-8 text-center text-pergament-dim">{actions.note}</p>}
         <p className="mt-6 text-center text-sm">
           <a href="/" className="link">
-            Back to the homepage
+            {t('result.home')}
           </a>
         </p>
       </div>
@@ -569,15 +572,15 @@ function ConfirmLeave({ note, onStay, onLeave }: { note: string; onStay: () => v
     <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="leave-title">
       <div className="dialog frame elev-2 max-w-md rounded-[28px] [--r:28px]">
         <h2 id="leave-title" className="h-display text-center text-3xl">
-          Leave this game?
+          {t('leave.title')}
         </h2>
         <p className="mt-3 text-center text-pergament-dim">{note}</p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <button ref={ref} type="button" className="btn btn-glut" onClick={onStay}>
-            Keep playing
+            {t('leave.stay')}
           </button>
           <button type="button" className="btn btn-line" onClick={onLeave}>
-            Leave game
+            {t('table.leave')}
           </button>
         </div>
       </div>
@@ -612,8 +615,3 @@ function useCardWidth(share: number, max: number, min: number, heightShare: numb
   return w;
 }
 
-function ordinal(n: number) {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]!);
-}

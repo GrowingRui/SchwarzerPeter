@@ -86,6 +86,17 @@
   .link:hover::after, .link:focus-visible::after { transform: scaleX(1); }
   .link:active { opacity: .7; }
 
+  /* EN / DE switch */
+  .lang-switch { display: inline-flex; flex: none; border-radius: 999px; padding: 3px; box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .4); }
+  .lang-switch button {
+    min-width: 2.4rem; padding: .35rem .6rem; border-radius: 999px; font-size: .8rem; font-weight: 700; letter-spacing: .04em;
+    color: #CFC2A5; transition: transform .3s var(--spring);
+  }
+  .lang-switch button:hover { color: #F4E4C1; }
+  .lang-switch button:active { transform: scale(.94); }
+  .lang-switch button:focus-visible { outline: 2px solid #F4E4C1; outline-offset: 2px; }
+  .lang-switch button[aria-pressed="true"] { background: #C6A15B; color: #12151B; }
+
   /* The full square logo, ornaments included. Size it with --logo. */
   .logo-mark {
     display: block; flex: none; width: var(--logo, 88px); aspect-ratio: 1; overflow: hidden; border-radius: 12px;

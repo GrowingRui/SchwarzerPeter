@@ -2,6 +2,7 @@ import type { ClientMessage, ErrorCode, RoomInfo, ServerMessage, Step } from '@s
 import type { PlayerId } from '@sp/engine';
 import type { GameHost } from './host';
 import { SERVER_URL, saveName } from './config';
+import { t } from '../i18n';
 
 export interface RoomSnapshot {
   readonly status: 'idle' | 'connecting' | 'open' | 'reconnecting' | 'closed';
@@ -142,7 +143,10 @@ export class RoomClient {
           this.close();
         } else {
           clearTimeout(this.noticeTimer);
-          this.update({ notice: m.message });
+          // Show our own wording, in the page language, rather than the server's English.
+          const key = `error.${m.code}`;
+          const text = t(key);
+          this.update({ notice: text === key ? t('error.default') : text });
           this.noticeTimer = setTimeout(() => this.update({ notice: null }), 4000);
         }
         break;

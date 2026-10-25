@@ -11,6 +11,7 @@
 - npm workspaces monorepo. Run `npm install` at the root.
 - `apps/web`: website and game screens. Vite, Tailwind v4 (`src/styles.css` holds the `@theme` brand tokens and the shared component styles), ES module scripts in `src/`, static files in `public/`. Pages are listed in `vite.config.js` (`build.rollupOptions.input`).
 - `apps/web/src/cards.js`: the SVG card art for the Alpine deck.
+- `apps/web/src/i18n.ts`: all English and German text. New text on any page needs both an English and a German entry (`data-i18n` on static pages, `t()` in the game). German uses "du" and standard spelling with ß.
 - `packages/engine` (`@sp/engine`): the game rules as pure TypeScript functions with a seeded RNG, shared by the web app, bots and the game server. `@sp/engine/protocol` defines the browser/server messages. Every rule change needs a test in `packages/engine/test`.
 - `apps/server` (`@sp/server`): online rooms on Cloudflare Workers + Durable Objects. Room logic lives in `src/room.ts` (tested in Node), the Durable Object in `src/worker.ts`.
 - `brand_assets/`: logo source and `brand-guidelines.md`. The web copy of the logo is `apps/web/public/brand_assets/logo-web.jpg`.

@@ -1,5 +1,12 @@
 import './styles.css';
 import { DECK, render, mountAll } from './cards.js';
+import { applyStatic, t } from './i18n';
+
+applyStatic();
+for (const a of document.querySelectorAll('a[data-card]')) {
+  const card = DECK.find((c) => c.key === a.dataset.card);
+  a.setAttribute('aria-label', card ? t('card.aria', { name: card.name }) : t('card.peterAria'));
+}
 
 mountAll();
 
@@ -26,7 +33,7 @@ function deal() {
     slot.style.setProperty('--i', i);
     slot.style.zIndex = i + 1;
     slot.innerHTML = `
-      <button type="button" class="card" aria-label="Card ${i + 1} of ${COUNT}">
+      <button type="button" class="card" aria-label="${t('hero.handCard', { i: i + 1, n: COUNT })}">
         <span class="card-inner">
           <span class="card-face card-back"></span>
           <span class="card-face card-front ${isPeter ? 'is-peter' : ''}" data-card>${render(isPeter ? 'peter' : card.key)}</span>
@@ -45,8 +52,8 @@ function pick(slot, isPeter, name) {
   slot.style.zIndex = 50;
   setTimeout(() => {
     msg.innerHTML = isPeter
-      ? '<span class="text-glut">You drew the cat.</span> Better pass it on.'
-      : `You drew the ${name}. Safe, this time.`;
+      ? `<span class="text-glut">${t('hero.drewCat')}</span> ${t('hero.passItOn')}`
+      : t('hero.drewSafe', { name });
     msg.classList.add('on'); reset.classList.add('on'); reset.tabIndex = 0;
   }, 450);
 }
