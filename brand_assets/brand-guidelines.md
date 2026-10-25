@@ -36,7 +36,7 @@ Glut is only for actions and the Schwarzer Peter card. Use Messing for decoratio
 Plain, warm and a little mischievous. Say what a button does ("Create a room", "Join"). Talk about the cat, not "the losing card".
 
 ## Deck
-The first deck is Alpine, with 18 pairs plus the cat (37 cards). The art lives in `cards.js` as inline SVG:
+The first deck is Alpine, with 18 pairs plus the cat (37 cards). The art lives in `apps/web/src/cards.js` as inline SVG, and the pair keys are in `packages/engine/src/decks.ts`. The web-sized logo is `apps/web/public/brand_assets/logo-web.jpg`.
 
 1 Steinbock, 2 Murmeltier, 3 Gämse, 4 Bartgeier, 5 Fuchs, 6 Hirsch, 7 Adler, 8 Igel, 9 Eule, 10 Kuh, 11 Bernhardiner, 12 Wolf, 13 Bär, 14 Schneehase, 15 Eichhörnchen, 16 Dachs, 17 Forelle, 18 Alpensalamander.
 

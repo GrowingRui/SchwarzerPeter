@@ -1,4 +1,6 @@
 temporary screenshots/
 node_modules/
+dist/
+.vercel/
 .DS_Store
 Thumbs.db

@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+@theme {
+  --color-kohle: #1E2430;
+  --color-kohle-raised: #272F3D;
+  --color-kohle-float: #323B4C;
+  --color-russ: #12151B;
+  --color-pergament: #F4E4C1;
+  --color-pergament-dim: #CFC2A5;
+  --color-pergament-mute: #9A927F;
+  --color-glut: #E8622C;
+  --color-glut-hot: #F27A45;
+  --color-glut-deep: #C24E1E;
+  --color-messing: #C6A15B;
+  --color-messing-dim: #8E7646;
+
+  --font-display: Gloock, Georgia, serif;
+  --font-sans: Figtree, system-ui, sans-serif;
+}
+
+@layer base {
+  :root {
+    --spring: cubic-bezier(.34, 1.56, .64, 1);
+    --ease-out: cubic-bezier(.22, 1, .36, 1);
+    /* spacing tokens */
+    --s-section: clamp(5rem, 10vw, 8.5rem);
+  }
+  html { scroll-behavior: smooth; overflow-x: clip; }
+  body {
+    overflow-x: clip;
+    background-color: #1E2430;
+    background-image:
+      radial-gradient(60rem 40rem at 85% -10%, rgba(232, 98, 44, .14), transparent 60%),
+      radial-gradient(50rem 36rem at -10% 20%, rgba(198, 161, 91, .10), transparent 60%),
+      radial-gradient(70rem 50rem at 50% 120%, rgba(18, 21, 27, .9), transparent 70%);
+    color: #F4E4C1;
+    line-height: 1.7;
+  }
+  button, select { cursor: pointer; }
+}
+
+/* Components sit below utilities, so a utility class on an element always wins. */
+@layer components {
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; z-index: 60; opacity: .07; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .h-display { font-family: var(--font-display); letter-spacing: -0.03em; line-height: 1.02; font-weight: 400; }
+
+  /* Brass double frame, echoing the logo's border */
+  .frame { position: relative; }
+  .frame::before, .frame::after {
+    content: ''; position: absolute; pointer-events: none; border-radius: inherit;
+  }
+  .frame::before { inset: 0; border: 1px solid rgba(198, 161, 91, .55); }
+  .frame::after { inset: 6px; border: 1px solid rgba(198, 161, 91, .22); border-radius: calc(var(--r, 0px) - 4px); }
+
+  /* Depth system */
+  .elev-1 { box-shadow: 0 1px 0 rgba(244, 228, 193, .05) inset, 0 2px 4px rgba(18, 21, 27, .25), 0 12px 32px -8px rgba(18, 21, 27, .45); }
+  .elev-2 { box-shadow: 0 1px 0 rgba(244, 228, 193, .07) inset, 0 4px 8px rgba(18, 21, 27, .3), 0 24px 60px -12px rgba(18, 21, 27, .6), 0 30px 80px -30px rgba(232, 98, 44, .18); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .6rem;
+    font-weight: 600; border-radius: 999px; padding: .85rem 1.6rem; line-height: 1.2;
+    transition: transform .35s var(--spring), opacity .2s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(1px) scale(.97); transition-duration: .08s; }
+  .btn:focus-visible, .link:focus-visible, .ring-focus:focus-visible {
+    outline: 2px solid #F4E4C1; outline-offset: 3px;
+  }
+  .btn-glut {
+    background: linear-gradient(180deg, #F27A45, #E8622C 55%, #D4561F); color: #12151B;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .35) inset, 0 -2px 0 rgba(18, 21, 27, .25) inset, 0 10px 24px -8px rgba(232, 98, 44, .65);
+  }
+  .btn-line { color: #F4E4C1; box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .6); }
+  .btn-line:hover { box-shadow: inset 0 0 0 1px #C6A15B; }
+  .link { position: relative; color: #CFC2A5; transition: opacity .2s ease; }
+  .link::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: -3px; height: 1px; background: #C6A15B;
+    transform: scaleX(0); transform-origin: left; transition: transform .35s var(--ease-out);
+  }
+  .link:hover { color: #F4E4C1; }
+  .link:hover::after, .link:focus-visible::after { transform: scaleX(1); }
+  .link:active { opacity: .7; }
+
+  /* Logo crop for the nav: shows the wordmark, trims the ornament border */
+  .logo-crop { position: relative; width: 132px; height: 78px; overflow: hidden; border-radius: 6px; }
+  .logo-crop img { position: absolute; width: 164px; max-width: none; left: -16px; top: -40px; }
+
+  /* ---------- Cards ---------- */
+  .card {
+    --w: clamp(104px, 12.5vw, 156px);
+    width: var(--w); aspect-ratio: 5 / 7; border-radius: 12px;
+    perspective: 1000px;
+  }
+  .card-inner {
+    position: absolute; inset: 0; transform-style: preserve-3d;
+    transition: transform .7s var(--spring);
+  }
+  .card-face {
+    position: absolute; inset: 0; border-radius: 12px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden;
+  }
+  .card-back, .card-back-face {
+    background: url('/brand_assets/logo-web.jpg') center / 112% no-repeat, #262C38;
+    box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .7), inset 0 0 0 5px #262C38, inset 0 0 0 6px rgba(198, 161, 91, .35),
+      0 2px 3px rgba(18, 21, 27, .4), 0 18px 30px -10px rgba(18, 21, 27, .75);
+  }
+  .card-back-face { aspect-ratio: 250 / 350; border-radius: 14px; }
+  .card-front {
+    transform: rotateY(180deg); border-radius: 12px;
+    box-shadow: 0 22px 40px -12px rgba(18, 21, 27, .8), 0 30px 60px -20px rgba(232, 98, 44, .35);
+  }
+  .card-front.is-peter { box-shadow: 0 22px 40px -12px rgba(18, 21, 27, .8), 0 0 70px -10px rgba(232, 98, 44, .6); }
+  [data-card] svg { display: block; width: 100%; height: 100%; }
+
+  /* The hand (hero fan) */
+  .hand { position: relative; height: clamp(250px, 29vw, 330px); }
+  .hand .slot {
+    position: absolute; left: 50%; bottom: 0;
+    transform-origin: 50% 240%;
+    transform: translateX(-50%) rotate(var(--rot)) translateY(0);
+    transition: transform .55s var(--spring);
+  }
+  .hand .slot > button { display: block; position: relative; cursor: pointer; border-radius: 12px; }
+  .hand .slot > button:focus-visible { outline: 2px solid #F4E4C1; outline-offset: 4px; }
+  @media (hover: hover) {
+    .hand:not(.done) .slot:hover { transform: translateX(-50%) rotate(var(--rot)) translateY(-22px); }
+  }
+  .hand:not(.done) .slot:active { transform: translateX(-50%) rotate(var(--rot)) translateY(-14px) scale(.98); }
+  .hand .slot.picked { transform: translateX(-50%) rotate(0deg) translateY(-34px) scale(1.08); z-index: 20; }
+  .hand .slot.picked .card-inner { transform: rotateY(180deg); }
+  .hand.done .slot:not(.picked) { opacity: .45; transition: transform .55s var(--spring), opacity .4s ease; }
+  .hand.done .slot:not(.picked) > button { cursor: default; }
+
+  .reveal { opacity: 0; transform: translateY(6px); transition: opacity .35s ease, transform .5s var(--spring); }
+  .reveal.on { opacity: 1; transform: none; }
+
+  /* Pip divider */
+  .pips { display: flex; align-items: center; gap: .9rem; color: #C6A15B; }
+  .pips::before, .pips::after { content: ''; height: 1px; flex: 1; background: linear-gradient(90deg, transparent, rgba(198, 161, 91, .5), transparent); }
+
+  /* Images: overlay + colour treatment */
+  .img-treat { position: relative; overflow: hidden; }
+  .img-treat img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .img-treat::before { content: ''; position: absolute; inset: 0; background: #C6A15B; mix-blend-mode: multiply; opacity: .35; z-index: 1; }
+  .img-treat::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0, 0, 0, .6), transparent 60%); z-index: 1; }
+
+  /* Card thumbnails on the home page and the deck page */
+  .deck-card, .playing-card {
+    display: block; border-radius: 14px; transition: transform .45s var(--spring);
+    filter: drop-shadow(0 2px 3px rgba(18, 21, 27, .45)) drop-shadow(0 18px 24px rgba(18, 21, 27, .5));
+  }
+  .deck-card.peter-glow { filter: drop-shadow(0 2px 3px rgba(18, 21, 27, .45)) drop-shadow(0 16px 30px rgba(232, 98, 44, .4)); }
+  .deck-card:hover, .playing-card:hover { transform: translateY(-8px) rotate(var(--tilt, 0deg)); }
+  .deck-card:active, .playing-card:active { transform: translateY(-3px) scale(.98); }
+  .deck-card:focus-visible, .playing-card:focus-visible { outline: 2px solid #F4E4C1; outline-offset: 4px; }
+
+  .code-input { letter-spacing: .35em; }
+  .code-input::placeholder { color: #6E6A60; letter-spacing: .35em; }
+  .code-input:focus-visible { outline: 2px solid #C6A15B; outline-offset: 2px; }
+
+  /* One orchestrated entrance: the deal */
+  @keyframes deal {
+    from { opacity: 0; transform: translateX(-50%) translateY(120px) rotate(0deg); }
+    to { opacity: 1; transform: translateX(-50%) rotate(var(--rot)) translateY(0); }
+  }
+  .hand .slot.dealing { animation: deal .8s var(--spring) both; animation-delay: calc(var(--i) * 70ms + 150ms); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  html { scroll-behavior: auto; }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "schwarzer-peter",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @sp/web",
+    "build": "npm run build -w @sp/web",
+    "preview": "npm run preview -w @sp/web",
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "screenshot": "node screenshot.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.16.0"
+  }
+}

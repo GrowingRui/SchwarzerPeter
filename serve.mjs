@@ -1,26 +1,13 @@
-import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+// Starts the Vite dev server for the website at http://localhost:3000.
+// Same as `npm run dev`; kept so `node serve.mjs` keeps working.
+import { createServer } from 'vite';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('.', import.meta.url));
-const port = Number(process.env.PORT) || 3000;
-const types = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript',
-  '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.ico': 'image/x-icon',
-};
-
-createServer(async (req, res) => {
-  let path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname));
-  let file = join(root, path);
-  if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
-  try {
-    if ((await stat(file)).isDirectory()) file = join(file, 'index.html');
-    const body = await readFile(file);
-    res.writeHead(200, { 'Content-Type': types[extname(file).toLowerCase()] || 'application/octet-stream' });
-    res.end(body);
-  } catch {
-    res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');
-  }
-}).listen(port, () => console.log(`Serving ${root} at http://localhost:${port}`));
+const root = fileURLToPath(new URL('./apps/web/', import.meta.url));
+const server = await createServer({
+  root,
+  configFile: fileURLToPath(new URL('./apps/web/vite.config.js', import.meta.url)),
+  server: { port: Number(process.env.PORT) || 3000, strictPort: true },
+});
+await server.listen();
+server.printUrls();

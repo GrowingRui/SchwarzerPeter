@@ -5,178 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Schwarzer Peter: the card game, online</title>
 <meta name="description" content="Play Schwarzer Peter online with friends, strangers or bots. Draw, match pairs, and don't get stuck with the cat.">
-<link rel="icon" href="brand_assets/logo-web.jpg">
+<link rel="icon" href="/brand_assets/logo-web.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          kohle: { DEFAULT: '#1E2430', raised: '#272F3D', float: '#323B4C' },
-          russ: '#12151B',
-          pergament: { DEFAULT: '#F4E4C1', dim: '#CFC2A5', mute: '#9A927F' },
-          glut: { DEFAULT: '#E8622C', hot: '#F27A45', deep: '#C24E1E' },
-          messing: { DEFAULT: '#C6A15B', dim: '#8E7646' },
-        },
-        fontFamily: {
-          display: ['Gloock', 'Georgia', 'serif'],
-          sans: ['Figtree', 'system-ui', 'sans-serif'],
-        },
-      },
-    },
-  };
-</script>
-<style>
-  :root {
-    --spring: cubic-bezier(.34, 1.56, .64, 1);
-    --ease-out: cubic-bezier(.22, 1, .36, 1);
-    /* spacing tokens */
-    --s-section: clamp(5rem, 10vw, 8.5rem);
-  }
-  html { scroll-behavior: smooth; overflow-x: clip; }
-  body { overflow-x: clip; }
-  body {
-    background-color: #1E2430;
-    background-image:
-      radial-gradient(60rem 40rem at 85% -10%, rgba(232, 98, 44, .14), transparent 60%),
-      radial-gradient(50rem 36rem at -10% 20%, rgba(198, 161, 91, .10), transparent 60%),
-      radial-gradient(70rem 50rem at 50% 120%, rgba(18, 21, 27, .9), transparent 70%);
-    color: #F4E4C1;
-    line-height: 1.7;
-  }
-  .grain {
-    position: fixed; inset: 0; pointer-events: none; z-index: 60; opacity: .07; mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
-  .h-display { font-family: Gloock, Georgia, serif; letter-spacing: -0.03em; line-height: 1.02; font-weight: 400; }
-
-  /* Brass double frame, echoing the logo's border */
-  .frame { position: relative; }
-  .frame::before, .frame::after {
-    content: ''; position: absolute; pointer-events: none; border-radius: inherit;
-  }
-  .frame::before { inset: 0; border: 1px solid rgba(198, 161, 91, .55); }
-  .frame::after { inset: 6px; border: 1px solid rgba(198, 161, 91, .22); border-radius: calc(var(--r, 0px) - 4px); }
-
-  /* Depth system */
-  .elev-1 { box-shadow: 0 1px 0 rgba(244, 228, 193, .05) inset, 0 2px 4px rgba(18, 21, 27, .25), 0 12px 32px -8px rgba(18, 21, 27, .45); }
-  .elev-2 { box-shadow: 0 1px 0 rgba(244, 228, 193, .07) inset, 0 4px 8px rgba(18, 21, 27, .3), 0 24px 60px -12px rgba(18, 21, 27, .6), 0 30px 80px -30px rgba(232, 98, 44, .18); }
-
-  /* Buttons */
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: .6rem;
-    font-weight: 600; border-radius: 999px; padding: .85rem 1.6rem; line-height: 1.2;
-    transition: transform .35s var(--spring), opacity .2s ease;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .btn:hover { transform: translateY(-2px); }
-  .btn:active { transform: translateY(1px) scale(.97); transition-duration: .08s; }
-  .btn:focus-visible, .link:focus-visible, .ring-focus:focus-visible {
-    outline: 2px solid #F4E4C1; outline-offset: 3px;
-  }
-  .btn-glut {
-    background: linear-gradient(180deg, #F27A45, #E8622C 55%, #D4561F); color: #12151B;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, .35) inset, 0 -2px 0 rgba(18, 21, 27, .25) inset, 0 10px 24px -8px rgba(232, 98, 44, .65);
-  }
-  .btn-line { color: #F4E4C1; box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .6); }
-  .btn-line:hover { box-shadow: inset 0 0 0 1px #C6A15B; }
-  .link { position: relative; color: #CFC2A5; transition: opacity .2s ease; }
-  .link::after {
-    content: ''; position: absolute; left: 0; right: 0; bottom: -3px; height: 1px; background: #C6A15B;
-    transform: scaleX(0); transform-origin: left; transition: transform .35s var(--ease-out);
-  }
-  .link:hover { color: #F4E4C1; }
-  .link:hover::after, .link:focus-visible::after { transform: scaleX(1); }
-  .link:active { opacity: .7; }
-
-  /* Logo crop for the nav: shows the wordmark, trims the ornament border */
-  .logo-crop { position: relative; width: 132px; height: 78px; overflow: hidden; border-radius: 6px; }
-  .logo-crop img { position: absolute; width: 164px; max-width: none; left: -16px; top: -40px; }
-
-  /* ---------- Cards ---------- */
-  .card {
-    --w: clamp(104px, 12.5vw, 156px);
-    width: var(--w); aspect-ratio: 5 / 7; border-radius: 12px;
-    perspective: 1000px;
-  }
-  .card-inner {
-    position: absolute; inset: 0; transform-style: preserve-3d;
-    transition: transform .7s var(--spring);
-  }
-  .card-face {
-    position: absolute; inset: 0; border-radius: 12px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden;
-  }
-  .card-back {
-    background:
-      url('brand_assets/logo-web.jpg') center / 112% no-repeat,
-      #262C38;
-    box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .7), inset 0 0 0 5px #262C38, inset 0 0 0 6px rgba(198, 161, 91, .35),
-      0 2px 3px rgba(18, 21, 27, .4), 0 18px 30px -10px rgba(18, 21, 27, .75);
-  }
-  .card-front {
-    transform: rotateY(180deg); border-radius: 12px;
-    box-shadow: 0 22px 40px -12px rgba(18, 21, 27, .8), 0 30px 60px -20px rgba(232, 98, 44, .35);
-  }
-  .card-front.is-peter { box-shadow: 0 22px 40px -12px rgba(18, 21, 27, .8), 0 0 70px -10px rgba(232, 98, 44, .6); }
-  [data-card] svg { display: block; width: 100%; height: 100%; }
-
-  /* The hand (hero fan) */
-  .hand { position: relative; height: clamp(250px, 29vw, 330px); }
-  .hand .slot {
-    position: absolute; left: 50%; bottom: 0;
-    transform-origin: 50% 240%;
-    transform: translateX(-50%) rotate(var(--rot)) translateY(0);
-    transition: transform .55s var(--spring);
-  }
-  .hand .slot > button { display: block; position: relative; cursor: pointer; border-radius: 12px; }
-  .hand .slot > button:focus-visible { outline: 2px solid #F4E4C1; outline-offset: 4px; }
-  @media (hover: hover) {
-    .hand:not(.done) .slot:hover { transform: translateX(-50%) rotate(var(--rot)) translateY(-22px); }
-  }
-  .hand:not(.done) .slot:active { transform: translateX(-50%) rotate(var(--rot)) translateY(-14px) scale(.98); }
-  .hand .slot.picked { transform: translateX(-50%) rotate(0deg) translateY(-34px) scale(1.08); z-index: 20; }
-  .hand .slot.picked .card-inner { transform: rotateY(180deg); }
-  .hand.done .slot:not(.picked) { opacity: .45; transition: transform .55s var(--spring), opacity .4s ease; }
-  .hand.done .slot:not(.picked) > button { cursor: default; }
-
-  .reveal { opacity: 0; transform: translateY(6px); transition: opacity .35s ease, transform .5s var(--spring); }
-  .reveal.on { opacity: 1; transform: none; }
-
-  /* Pip divider */
-  .pips { display: flex; align-items: center; gap: .9rem; color: #C6A15B; }
-  .pips::before, .pips::after { content: ''; height: 1px; flex: 1; background: linear-gradient(90deg, transparent, rgba(198, 161, 91, .5), transparent); }
-
-  /* Images: overlay + colour treatment */
-  .img-treat { position: relative; overflow: hidden; }
-  .img-treat img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .img-treat::before { content: ''; position: absolute; inset: 0; background: #C6A15B; mix-blend-mode: multiply; opacity: .35; z-index: 1; }
-  .img-treat::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0, 0, 0, .6), transparent 60%); z-index: 1; }
-
-  .deck-card { transition: transform .45s var(--spring); filter: drop-shadow(0 2px 3px rgba(18, 21, 27, .45)) drop-shadow(0 18px 24px rgba(18, 21, 27, .5)); }
-  .deck-card.peter-glow { filter: drop-shadow(0 2px 3px rgba(18, 21, 27, .45)) drop-shadow(0 16px 30px rgba(232, 98, 44, .4)); }
-  .deck-card:hover { transform: translateY(-8px) rotate(var(--tilt, 0deg)); }
-  .deck-card:active { transform: translateY(-3px) scale(.98); }
-  .deck-card:focus-visible { outline: 2px solid #F4E4C1; outline-offset: 4px; }
-
-  .code-input { letter-spacing: .35em; }
-  .code-input::placeholder { color: #6E6A60; letter-spacing: .35em; }
-  .code-input:focus-visible { outline: 2px solid #C6A15B; outline-offset: 2px; }
-
-  /* One orchestrated entrance: the deal */
-  @keyframes deal {
-    from { opacity: 0; transform: translateX(-50%) translateY(120px) rotate(0deg); }
-    to { opacity: 1; transform: translateX(-50%) rotate(var(--rot)) translateY(0); }
-  }
-  .hand .slot.dealing { animation: deal .8s var(--spring) both; animation-delay: calc(var(--i) * 70ms + 150ms); }
-
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
-    html { scroll-behavior: auto; }
-  }
-</style>
+<script type="module" src="/src/home.js"></script>
 </head>
 <body class="font-sans antialiased min-h-screen overflow-x-hidden">
 <div class="grain" aria-hidden="true"></div>
@@ -185,7 +18,7 @@
 <header class="relative z-40">
   <nav class="mx-auto max-w-6xl px-5 sm:px-8 h-24 flex items-center justify-between gap-6" aria-label="Main">
     <a href="#" class="logo-crop ring-focus shrink-0 transition-transform duration-300 hover:-translate-y-0.5 active:scale-95" aria-label="Schwarzer Peter home">
-      <img src="brand_assets/logo-web.jpg" alt="Schwarzer Peter">
+      <img src="/brand_assets/logo-web.jpg" alt="Schwarzer Peter">
     </a>
     <ul class="hidden md:flex items-center gap-9 text-[15px]">
       <li><a class="link" href="#play">Play</a></li>
@@ -195,7 +28,7 @@
     </ul>
     <div class="flex items-center gap-3">
       <a href="#" class="link hidden sm:inline text-[15px] mr-3">Sign in</a>
-      <a href="#play" class="btn btn-glut text-[15px] !py-2.5 !px-5">Play now</a>
+      <a href="#play" class="btn btn-glut text-[15px] py-2.5! px-5!">Play now</a>
     </div>
   </nav>
 </header>
@@ -289,9 +122,9 @@
             </div>
           </dl>
           <div class="mt-10 flex items-end gap-3" aria-hidden="true">
-            <div class="card relative -rotate-6"><div class="card-face card-front !transform-none" data-card="igel"></div></div>
-            <div class="card relative rotate-3 -ml-10"><div class="card-face card-front !transform-none" data-card="igel"></div></div>
-            <div class="card relative rotate-[10deg] ml-4"><div class="card-face card-front is-peter !transform-none" data-card="peter"></div></div>
+            <div class="card relative -rotate-6"><div class="card-face card-front transform-none!" data-card="igel"></div></div>
+            <div class="card relative rotate-3 -ml-10"><div class="card-face card-front transform-none!" data-card="igel"></div></div>
+            <div class="card relative rotate-[10deg] ml-4"><div class="card-face card-front is-peter transform-none!" data-card="peter"></div></div>
           </div>
         </div>
 
@@ -394,7 +227,7 @@
 
 <footer class="relative bg-russ/60 shadow-[inset_0_1px_0_rgba(198,161,91,.18)]">
   <div class="mx-auto max-w-6xl px-5 sm:px-8 py-12 grid gap-10 md:grid-cols-[auto_1fr_auto] md:items-start">
-    <a href="#" class="logo-crop ring-focus" aria-label="Schwarzer Peter home"><img src="brand_assets/logo-web.jpg" alt=""></a>
+    <a href="#" class="logo-crop ring-focus" aria-label="Schwarzer Peter home"><img src="/brand_assets/logo-web.jpg" alt=""></a>
     <ul class="flex flex-wrap gap-x-8 gap-y-3 text-[15px] md:justify-center md:pt-5">
       <li><a class="link" href="#rules">Rules</a></li>
       <li><a class="link" href="#">Help</a></li>
@@ -411,61 +244,5 @@
   </div>
   <p class="mx-auto max-w-6xl px-5 sm:px-8 pb-10 text-sm text-pergament-mute">© 2026 Schwarzer Peter. Made in Switzerland.</p>
 </footer>
-
-<script src="cards.js"></script>
-<script>
-  SPCards.mountAll();
-  const ANIMALS = SPCards.DECK;
-  const hand = document.getElementById('hand');
-  const msg = document.getElementById('handMsg');
-  const reset = document.getElementById('handReset');
-  const COUNT = 7;
-
-  function deal() {
-    hand.classList.remove('done');
-    msg.classList.remove('on'); reset.classList.remove('on'); reset.tabIndex = -1;
-    hand.innerHTML = '';
-    const peterAt = Math.floor(Math.random() * COUNT);
-    const pool = [...ANIMALS].sort(() => Math.random() - .5);
-    const spread = window.innerWidth < 640 ? 40 : 54;
-    for (let i = 0; i < COUNT; i++) {
-      const rot = (i - (COUNT - 1) / 2) * (spread / (COUNT - 1));
-      const isPeter = i === peterAt;
-      const card = isPeter ? null : pool[i];
-      const name = isPeter ? 'Schwarzer Peter' : card.name;
-      const slot = document.createElement('div');
-      slot.className = 'slot dealing';
-      slot.style.setProperty('--rot', rot + 'deg');
-      slot.style.setProperty('--i', i);
-      slot.style.zIndex = i + 1;
-      slot.innerHTML = `
-        <button type="button" class="card" aria-label="Card ${i + 1} of ${COUNT}">
-          <span class="card-inner">
-            <span class="card-face card-back"></span>
-            <span class="card-face card-front ${isPeter ? 'is-peter' : ''}" data-card>${SPCards.render(isPeter ? 'peter' : card.key)}</span>
-          </span>
-        </button>`;
-      slot.addEventListener('animationend', () => slot.classList.remove('dealing'), { once: true });
-      slot.querySelector('button').addEventListener('click', () => pick(slot, isPeter, name));
-      hand.appendChild(slot);
-    }
-  }
-
-  function pick(slot, isPeter, name) {
-    if (hand.classList.contains('done')) return;
-    hand.classList.add('done');
-    slot.classList.add('picked');
-    slot.style.zIndex = 50;
-    setTimeout(() => {
-      msg.innerHTML = isPeter
-        ? '<span class="text-glut">You drew the cat.</span> Better pass it on.'
-        : `You drew the ${name}. Safe, this time.`;
-      msg.classList.add('on'); reset.classList.add('on'); reset.tabIndex = 0;
-    }, 450);
-  }
-
-  reset.addEventListener('click', deal);
-  deal();
-</script>
 </body>
 </html>
