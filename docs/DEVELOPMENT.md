@@ -5,7 +5,7 @@ How the Schwarzer Peter project is built. For the game itself, see the [README](
 ## Project layout
 
 ```
-apps/web          Website and (soon) game screens. Vite + Tailwind, deployed on Vercel.
+apps/web          Website (index.html, deck.html) and the game (play.html, React in src/play). Vite + Tailwind, deployed on Vercel.
 packages/engine   The game rules in plain TypeScript, shared by the website, bots and the game server.
 brand_assets      Logo source file and brand guidelines.
 ```
@@ -21,6 +21,10 @@ npm run build      # production build in apps/web/dist
 ```
 
 `node screenshot.mjs http://localhost:3000 [label]` saves a full-page screenshot to `temporary screenshots/`, using your installed Chrome or Edge.
+
+## The game page
+
+`src/play/host.ts` runs a practice game in the browser: it owns the full engine state and the bots, and gives the table only what you may see (`viewFor`/`eventFor`) as a stream of steps. `src/play/Table.tsx` plays those steps one at a time with card animations and calls `ready()` when it has caught up, which is when the next bot moves. An online host for Phase 3 will produce the same steps from the server.
 
 ## The engine in short
 

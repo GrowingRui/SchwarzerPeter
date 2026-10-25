@@ -42,7 +42,6 @@ Steinbock, Murmeltier, Gämse, Bartgeier, Fuchs, Hirsch, Adler, Igel, Eule, Kuh,
 
 ## What's coming
 
-- **Play against bots.** A real match against 1 to 5 computer players, right in your browser.
 - **Play with friends.** Create a private room and send the link. Everyone joins from their own phone or computer.
 - **Bluffing that works online.** Shuffle your hand while someone is choosing, see where their hand hovers, and react with a grin or a gasp.
 - **Your language.** Deutsch, Français, Italiano and English.
@@ -51,6 +50,8 @@ Steinbock, Murmeltier, Gämse, Bartgeier, Fuchs, Hirsch, Adler, Igel, Eule, Kuh,
 ## Play
 
 Visit **[schwarzerpeter.vercel.app](https://schwarzerpeter.vercel.app)**. It's free, works in any browser, and there's nothing to install.
+
+You can already **[play a full match against 1 to 5 bots](https://schwarzerpeter.vercel.app/play)**. The bots pick their cards at random, so just like at a real table, it all comes down to luck.
 
 ---
 

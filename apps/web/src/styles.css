@@ -162,6 +162,125 @@
   .code-input::placeholder { color: #6E6A60; letter-spacing: .35em; }
   .code-input:focus-visible { outline: 2px solid #C6A15B; outline-offset: 2px; }
 
+  /* ---------- Play page ---------- */
+  #fly-layer { position: fixed; inset: 0; pointer-events: none; z-index: 80; }
+  .fly-card { position: absolute; left: 0; top: 0; perspective: 900px; will-change: transform; filter: drop-shadow(0 16px 20px rgba(18, 21, 27, .55)); }
+  .fly-inner { position: absolute; inset: 0; transform-style: preserve-3d; }
+  .fly-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 5.6% / 4%; overflow: hidden; }
+  .fly-face svg { display: block; width: 100%; height: 100%; }
+  .fly-front { transform: rotateY(180deg); }
+  .fly-back { background: url('/brand_assets/logo-web.jpg') center / 112% no-repeat, #262C38; box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .7); }
+
+  .play-card { display: block; width: 100%; aspect-ratio: 250 / 350; border-radius: 5.6% / 4%; }
+  .play-card-face svg { display: block; width: 100%; height: 100%; }
+  .play-card-back {
+    background: url('/brand_assets/logo-web.jpg') center / 112% no-repeat, #262C38;
+    box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .7), inset 0 0 0 4px #262C38, inset 0 0 0 5px rgba(198, 161, 91, .3), 0 8px 18px -8px rgba(18, 21, 27, .8);
+  }
+  /* At thumbnail size the logo turns to noise, so mini backs get a plain brass-framed back. */
+  .play-card-back.mini {
+    width: 26px; flex: none; border-radius: 3px;
+    background: radial-gradient(circle at 50% 50%, #E8622C 0 1.6px, transparent 2.2px), #262C38;
+    box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .75), inset 0 0 0 3px #262C38, inset 0 0 0 3.6px rgba(198, 161, 91, .4), 1px 0 3px rgba(18, 21, 27, .5);
+  }
+
+  .bot-choice {
+    display: grid; place-items: center; width: 58px; height: 58px; border-radius: 999px; cursor: pointer;
+    color: #CFC2A5; box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .4); transition: transform .35s var(--spring);
+  }
+  .bot-choice:hover { transform: translateY(-2px); color: #F4E4C1; box-shadow: inset 0 0 0 1px #C6A15B; }
+  .bot-choice:active { transform: scale(.94); }
+  .bot-choice:has(input:checked) {
+    background: linear-gradient(180deg, #F27A45, #E8622C 55%, #D4561F); color: #12151B;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .35) inset, 0 10px 24px -8px rgba(232, 98, 44, .65);
+  }
+  .bot-choice:has(input:focus-visible) { outline: 2px solid #F4E4C1; outline-offset: 3px; }
+
+  .table-surface {
+    display: flex; flex-direction: column; min-height: 0;
+    background:
+      radial-gradient(120% 80% at 50% 0%, rgba(198, 161, 91, .10), transparent 60%),
+      radial-gradient(70% 60% at 50% 115%, rgba(232, 98, 44, .12), transparent 70%),
+      linear-gradient(180deg, #2A3242, #222937);
+  }
+  .seats { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; padding: .9rem .75rem .25rem; }
+  .seat {
+    position: relative; flex: none; display: flex; flex-direction: column; gap: .5rem;
+    padding: .6rem .85rem .7rem; border-radius: 16px; background: rgba(18, 21, 27, .38);
+    box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .16); transition: opacity .4s ease;
+  }
+  .seat.is-drawer { box-shadow: inset 0 0 0 1.5px #E8622C, 0 0 0 5px rgba(232, 98, 44, .12); }
+  .seat.is-offerer { box-shadow: inset 0 0 0 1.5px #C6A15B; }
+  .seat.is-out { opacity: .5; }
+  .seat.is-loser { opacity: 1; box-shadow: inset 0 0 0 1.5px #E8622C, 0 0 44px -6px rgba(232, 98, 44, .6); }
+  @media (max-width: 767px) {
+    .seat { padding: .45rem .6rem .5rem; gap: .35rem; border-radius: 14px; }
+    .seat .avatar { width: 28px; height: 28px; font-size: .9rem; }
+    .mini-fan { height: 30px; }
+    .mini-fan > .mini { width: 21px; }
+    .mini-fan > .mini + .mini { margin-left: -16px; }
+  }
+  @media (min-width: 768px) {
+    .seats { position: absolute; inset: 0; display: block; padding: 0; overflow: visible; pointer-events: none; }
+    .seat { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); pointer-events: auto; }
+  }
+  .avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 999px; font-family: var(--font-display); font-size: 1.05rem; color: #12151B; flex: none; }
+  .avatar-0 { background: #C6A15B; }
+  .avatar-1 { background: #E8622C; }
+  .avatar-2 { background: #CFC2A5; }
+  .avatar-3 { background: #F27A45; }
+  .avatar-4 { background: #8E7646; color: #F4E4C1; }
+  .mini-fan { display: flex; height: 37px; min-width: 26px; }
+  .mini-fan > .mini + .mini { margin-left: -17px; }
+
+  .table-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; padding: .75rem 1rem 1rem; }
+  @media (min-width: 768px) {
+    .table-center { position: absolute; left: 0; right: 0; top: var(--center-top, 47%); bottom: 0; justify-content: flex-start; padding-top: .25rem; }
+  }
+  .status-line { text-align: center; max-width: 34ch; min-height: 2.5em; display: grid; place-items: center; animation: status-in .45s var(--spring) both; }
+  @keyframes status-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .table-middle { display: flex; flex-direction: column; align-items: center; gap: .75rem; width: 100%; }
+  .table-middle .pile { order: 2; }
+  @media (min-width: 768px) {
+    .table-middle { flex-direction: row; justify-content: center; align-items: flex-start; gap: 2.5rem; }
+    .table-middle .pile { order: 0; }
+  }
+
+  .pile { display: flex; flex-direction: column; align-items: center; flex: none; }
+  .pile-stack { position: relative; width: 92px; height: 84px; }
+  .pile-pair { position: absolute; left: 6px; top: 8px; width: 70px; height: 66px; }
+  .pile-pair .play-card { position: absolute; width: 46px; box-shadow: 0 4px 10px -2px rgba(18, 21, 27, .55); }
+  .pile-pair .play-card + .play-card { left: 22px; top: 2px; }
+  .pile-target { position: absolute; left: 18px; top: 10px; width: 46px; aspect-ratio: 250 / 350; }
+
+  .offer, .offer-placeholder { width: min(560px, 92%); }
+  .offer-placeholder { height: calc(clamp(56px, min(7.5vw, 10.5vh), 104px) * 1.4 + 36px); }
+  .offer { animation: status-in .5s var(--spring) both; }
+  .offer-fan { position: relative; width: 100%; }
+  .offer-card { position: absolute; left: 0; top: 22px; border-radius: 6px; cursor: pointer; transition: transform .45s var(--spring); }
+  .offer-card .play-card { transition: transform .35s var(--spring); }
+  .offer-card:not(:disabled):hover .play-card, .offer-card:not(:disabled):focus-visible .play-card { transform: translateY(-18px); }
+  .offer-card:not(:disabled):active .play-card { transform: translateY(-10px) scale(.97); }
+  .offer-card:focus-visible { outline: 2px solid #F4E4C1; outline-offset: 4px; }
+  .offer-card:disabled { cursor: default; }
+
+  .your-side { padding: .5rem 0 1rem; }
+  .hand-row { position: relative; width: 100%; max-width: 920px; margin: 0 auto; }
+  .hand-card { position: absolute; left: 0; top: 26px; transition: transform .5s var(--spring); }
+  .hand-card-inner { transition: transform .3s var(--spring); }
+  .hand-card .play-card { box-shadow: 0 10px 18px -8px rgba(18, 21, 27, .7); }
+  .hand-card.is-hovered .hand-card-inner { transform: translateY(-22px); }
+  .hand-card.is-hovered .play-card { box-shadow: 0 0 0 2px #E8622C, 0 18px 30px -8px rgba(232, 98, 44, .55); }
+  .hand-card.is-dealt-pair .play-card { box-shadow: 0 0 0 2px #C6A15B, 0 14px 26px -8px rgba(198, 161, 91, .5); }
+  .hand-row.is-dealing .hand-card-inner { animation: hand-deal .7s var(--spring) both; animation-delay: calc(var(--i) * 55ms); }
+  @keyframes hand-deal { from { opacity: 0; transform: translateY(160px) rotate(-6deg); } to { opacity: 1; transform: none; } }
+
+  .dialog-backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 1.25rem; background: rgba(18, 21, 27, .74); animation: fade-in .3s ease both; }
+  .dialog { position: relative; width: 100%; max-width: 30rem; max-height: calc(100dvh - 2.5rem); overflow: auto; padding: 2.5rem 2rem; background: linear-gradient(180deg, #2E3747, #262D3B); animation: dialog-in .55s var(--spring) both; }
+  .result-card { box-shadow: 0 0 60px -8px rgba(232, 98, 44, .55), 0 20px 40px -12px rgba(18, 21, 27, .8); }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes dialog-in { from { opacity: 0; transform: translateY(24px) scale(.96); } to { opacity: 1; transform: none; } }
+
   /* One orchestrated entrance: the deal */
   @keyframes deal {
     from { opacity: 0; transform: translateX(-50%) translateY(120px) rotate(0deg); }
