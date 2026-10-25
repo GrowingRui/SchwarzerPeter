@@ -36,7 +36,11 @@ To try an online game locally, run both dev commands, create a room at http://lo
 | `/play?create=1` | Create an online room |
 | `/play?room=KATZE` | Join room KATZE: name, lobby, then the game (`src/play/Online.tsx`) |
 
-Either way, `src/play/Table.tsx` gets its game as a stream of steps (`deal`, `action`, `hover`, `sync`) from a `GameHost`. It plays them one at a time with card animations, and it only ever receives what this player may see. The practice host waits for the table's `ready()` before a bot moves. The online host (`src/play/room-client.ts`) gets steps from the server, which sets the pace itself.
+Either way, `src/play/Table.tsx` gets its game as a stream of steps (`deal`, `action`, `hover`, `sync`) from a `GameHost`. Live steps (`peek`, `rearranged`, `reaction`) skip the animation queue and show at once. It plays them one at a time with card animations, and it only ever receives what this player may see. The practice host waits for the table's `ready()` before a bot moves. The online host (`src/play/room-client.ts`) gets steps from the server, which sets the pace itself.
+
+## Bluffing
+
+You can rearrange your hand at any time (drag, arrow keys or Shuffle); the browser sends the new order (`arrange`) and the others only learn *that* you rearranged. While you choose a card, the browser sends the slot you point at (`peek`), and the server passes it only to the player holding those cards. Emotes (`react`) are a fixed list (`EMOTES` in the protocol), limited to one per second per player. Peeks and emotes never change the stored room, so they cost no storage writes. In practice games, bots sometimes shuffle before you draw and react to big moments.
 
 ## Languages
 

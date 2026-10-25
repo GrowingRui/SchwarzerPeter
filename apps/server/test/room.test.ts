@@ -184,6 +184,66 @@ describe('playing', () => {
   });
 });
 
+describe('bluffing', () => {
+  function started() {
+    const l = lobby(['Rui', 'Lena', 'Max']);
+    const r = handle(l.state, l.ids[0]!, { t: 'start', bots: 0 }, 0, l.random);
+    return { ...l, state: r.state };
+  }
+  const handIds = (s: RoomState, id: string) => s.game!.players.find((p) => p.id === id)!.hand.map((c) => c.id);
+
+  it('saves a new hand order and only tells the others that it changed', () => {
+    const { state, ids, random } = started();
+    const order = [...handIds(state, ids[0]!)].reverse();
+    const { state: next, out } = handle(state, ids[0]!, { t: 'arrange', order }, 1, random);
+    expect(handIds(next, ids[0]!)).toEqual(order);
+    expect(to(out, ids[0]!)).toEqual([]);
+    for (const other of ids.slice(1)) {
+      expect(steps(out, other)).toEqual([{ kind: 'rearranged', playerId: ids[0] }]);
+    }
+    expect(JSON.stringify(out)).not.toContain(order[0]);
+  });
+
+  it('rejects an order that isn’t exactly your cards', () => {
+    const { state, ids, random } = started();
+    const mine = handIds(state, ids[0]!);
+    const theirs = handIds(state, ids[1]!)[0]!;
+    expect(errorCode(() => handle(state, ids[0]!, { t: 'arrange', order: mine.slice(1) }, 1, random))).toBe('BAD_MESSAGE');
+    expect(errorCode(() => handle(state, ids[0]!, { t: 'arrange', order: [...mine.slice(1), theirs] }, 1, random))).toBe('BAD_MESSAGE');
+  });
+
+  it('lets a draw use the new order', () => {
+    let { state, random } = started();
+    const turn = currentTurn(state.game!)!;
+    const order = [...handIds(state, turn.offerer)].reverse();
+    state = handle(state, turn.offerer, { t: 'arrange', order }, 1, random).state;
+    const drawn = handle(state, turn.drawer, { t: 'draw', slot: 0 }, 2, random).out
+      .flatMap((o) => (o.to === turn.drawer && o.msg.t === 'step' && o.msg.step.kind === 'action' ? o.msg.step.events : []))
+      .find((e) => e.type === 'cardDrawn');
+    expect(drawn).toMatchObject({ card: { id: order[0] } });
+  });
+
+  it('passes a peek only from the drawer to the player holding the cards', () => {
+    const { state, random } = started();
+    const turn = currentTurn(state.game!)!;
+    const bystander = state.members.find((m) => m.id !== turn.drawer && m.id !== turn.offerer)!.id;
+    const peek = handle(state, turn.drawer, { t: 'peek', slot: 1 }, 1, random);
+    expect(peek.state).toBe(state);
+    expect(peek.out).toEqual([{ to: turn.offerer, msg: { t: 'step', step: { kind: 'peek', playerId: turn.drawer, slot: 1 } } }]);
+    expect(handle(state, turn.drawer, { t: 'peek', slot: null }, 1, random).out).toHaveLength(1);
+    expect(handle(state, bystander, { t: 'peek', slot: 0 }, 1, random).out).toEqual([]);
+    expect(handle(state, turn.drawer, { t: 'peek', slot: 99 }, 1, random).out).toEqual([]);
+  });
+
+  it('sends reactions to everyone else without changing the room', () => {
+    const { state, ids, random } = started();
+    const r = handle(state, ids[1]!, { t: 'react', emote: 'gasp' }, 1, random);
+    expect(r.state).toBe(state);
+    expect(r.out.map((o) => o.to).sort()).toEqual([ids[0], ids[2]].sort());
+    expect(steps(r.out, ids[0]!)).toEqual([{ kind: 'reaction', playerId: ids[1], emote: 'gasp' }]);
+  });
+});
+
 describe('after the game', () => {
   it('the host takes everyone back to the lobby, without the bots', () => {
     const random = seeded(3);

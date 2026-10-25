@@ -93,6 +93,9 @@ export class RoomClient {
         return () => this.stepListeners.delete(listener);
       },
       draw: (slot) => this.send({ t: 'draw', slot }),
+      arrange: (order) => this.send({ t: 'arrange', order }),
+      peek: (slot) => this.send({ t: 'peek', slot }),
+      react: (emote) => this.send({ t: 'react', emote }),
       ready: () => undefined, // the server sets the pace
       dispose: () => undefined, // the connection outlives one table
     };

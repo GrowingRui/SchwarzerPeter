@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { ALPINE_DECK, PETER, type Card, type GameEvent, type PlayerId, type PlayerView } from '@sp/engine';
-import type { Step } from '@sp/engine/protocol';
+import { EMOTES, isLiveStep, type Emote, type LiveStep, type Step } from '@sp/engine/protocol';
 import type { GameHost } from './host';
 import { CardBack, CardFace, cardName } from './cards';
 import { fly, rectOf, setTempo, wait } from './fly';
@@ -17,6 +17,21 @@ type CardDrawn = Extract<GameEvent, { type: 'cardDrawn' }>;
 type PairLaidDown = Extract<GameEvent, { type: 'pairLaidDown' }>;
 
 const isPair = (e: GameEvent): e is PairLaidDown => e.type === 'pairLaidDown';
+
+export const EMOJI: Record<Emote, string> = { grin: '😏', gasp: '😱', laugh: '😂', sweat: '😅', shrug: '🤷', clap: '👏' };
+interface Bubble {
+  readonly emote: Emote;
+  readonly key: number;
+}
+
+/** Your cards in the order you last chose; cards you haven't placed yet go at the end. */
+function inPreferredOrder(hand: readonly Card[], order: readonly string[]): Card[] {
+  const rank = new Map(order.map((id, i) => [id, i]));
+  return hand
+    .map((c, i) => ({ c, r: rank.get(c.id) ?? order.length + i }))
+    .sort((a, b) => a.r - b.r)
+    .map((x) => x.c);
+}
 const handCard = (id: string) => `[data-hand-card="${id}"]`;
 const seatHand = (id: PlayerId) => `[data-seat-hand="${id}"]`;
 const PILE = '[data-pile-target]';
@@ -55,10 +70,23 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
   const [showResult, setShowResult] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const viewRef = useRef<PlayerView | null>(null);
+  // Bluffing
+  const [order, setOrder] = useState<readonly string[]>([]);
+  const [bubbles, setBubbles] = useState<Readonly<Record<PlayerId, Bubble>>>({});
+  const [shuffles, setShuffles] = useState<Readonly<Record<PlayerId, number>>>({});
+  const [flash, setFlash] = useState(0);
+  const [announcement, setAnnouncement] = useState('');
+  const bubbleKey = useRef(0);
+
+  const showBubble = useCallback((playerId: PlayerId, emote: Emote) => {
+    const key = ++bubbleKey.current;
+    setBubbles((b) => ({ ...b, [playerId]: { emote, key } }));
+    setTimeout(() => setBubbles((b) => (b[playerId]?.key === key ? (({ [playerId]: _, ...rest }) => rest)(b) : b)), 2700);
+  }, []);
 
   useEffect(() => {
     let alive = true;
-    const queue: Step[] = [];
+    const queue: Exclude<Step, LiveStep>[] = [];
     let running = false;
     setTempo(1);
 
@@ -176,6 +204,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
         commit(() => setHiddenPairs(0));
         await wait(youDraw ? 700 : 350);
       } else if (youDraw && card?.face === PETER) {
+        setFlash((f) => f + 1);
         await wait(1100);
       } else {
         await wait(youDraw || youOffer ? 450 : 150);
@@ -222,7 +251,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
       }
     }
 
-    async function play(step: Step) {
+    async function play(step: Exclude<Step, LiveStep>) {
       if (step.kind === 'deal') return playDeal(step);
       if (step.kind === 'action') return playAction(step);
       if (step.kind === 'sync') return playSync(step.view);
@@ -250,7 +279,25 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
       host.ready();
     }
 
+    /** Peeks, shuffles and reactions show at once, even mid-animation. */
+    function playLive(step: LiveStep) {
+      if (step.kind === 'peek') {
+        setHover(step.slot);
+        if (step.slot !== null) setMessage({ text: t('table.choosing', { name: nameOf(step.playerId) }) });
+      } else if (step.kind === 'rearranged') {
+        setShuffles((s) => ({ ...s, [step.playerId]: (s[step.playerId] ?? 0) + 1 }));
+        setAnnouncement(t('bluff.rearranged', { name: nameOf(step.playerId) }));
+      } else {
+        showBubble(step.playerId, step.emote);
+        setAnnouncement(t('react.announce', { name: nameOf(step.playerId), label: t(`react.${step.emote}`) }));
+      }
+    }
+
     const unsubscribe = host.subscribe((step) => {
+      if (isLiveStep(step)) {
+        setTimeout(() => alive && playLive(step), 0);
+        return;
+      }
       queue.push(step);
       // Start outside React's commit phase, so flushSync is allowed.
       setTimeout(() => void run(), 0);
@@ -260,7 +307,27 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
       unsubscribe();
       host.dispose();
     };
-  }, [host, you]);
+  }, [host, you, showBubble]);
+
+  // While you choose, the player holding out their cards sees which one you point at.
+  const lastPeek = useRef<number | null>(null);
+  const peek = useCallback(
+    (slot: number | null) => {
+      if (lastPeek.current === slot) return;
+      lastPeek.current = slot;
+      host.peek(slot);
+    },
+    [host],
+  );
+
+  const [cooldown, setCooldown] = useState(false);
+  const react = (emote: Emote) => {
+    if (cooldown) return;
+    host.react(emote);
+    showBubble(you, emote);
+    setCooldown(true);
+    setTimeout(() => setCooldown(false), 1200);
+  };
 
   if (!view) return null;
 
@@ -271,6 +338,22 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
   const yourTurn = phase === 'playing' && view.drawer === you && !busy;
   const visiblePairs = view.pairs.slice(0, Math.max(0, view.pairs.length - hiddenPairs));
   const placeOf = (id: PlayerId) => view.finishOrder.indexOf(id) + 1;
+
+  const hand = inPreferredOrder(view.hand, order);
+  const canArrange = phase === 'playing' && !me.isOut && hand.length > 1 && extra.length === 0;
+  const arrange = (ids: string[]) => {
+    setOrder(ids);
+    host.arrange(ids);
+  };
+  const shuffle = () => {
+    const ids = hand.map((c) => c.id);
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j]!, ids[i]!];
+    }
+    if (ids.every((id, i) => id === hand[i]!.id)) ids.push(ids.shift()!);
+    arrange(ids);
+  };
 
   return (
     <div className="flex h-dvh min-h-[640px] flex-col overflow-hidden">
@@ -301,6 +384,8 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
                   place={s.isOut ? placeOf(s.id) : 0}
                   loser={view.loser === s.id}
                   offline={!!offline?.has(s.id)}
+                  bubble={bubbles[s.id]}
+                  shuffles={shuffles[s.id] ?? 0}
                 />
               );
             })}
@@ -318,7 +403,18 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
             <div className="table-middle">
               <Pile pairs={visiblePairs} />
               {view.drawer === you && phase === 'playing' && offerer ? (
-                <OfferFan count={offerer.cardCount} from={offerer.name} enabled={yourTurn} onPick={(slot) => host.draw(slot)} />
+                <OfferFan
+                  key={offerer.id}
+                  shuffles={shuffles[offerer.id] ?? 0}
+                  count={offerer.cardCount}
+                  from={offerer.name}
+                  enabled={yourTurn}
+                  onPick={(slot) => {
+                    peek(null);
+                    host.draw(slot);
+                  }}
+                  onPeek={peek}
+                />
               ) : (
                 <div className="offer-placeholder" aria-hidden="true" />
               )}
@@ -327,23 +423,55 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
         </section>
 
         <section className="your-side" aria-label={t('table.yourHand')}>
-          <Hand cards={[...view.hand, ...extra]} dealtPairs={extra} hidden={hidden} hover={hover} dealing={phase === 'dealing'} you={you} />
-          <p className="mt-1 text-center text-sm text-pergament-mute">
-            {me.isOut
-              ? t('status.out', { ord: ordinal(placeOf(me.id)), n: placeOf(me.id) })
-              : view.loser === me.id
-                ? t('status.keptCat')
-                : phase === 'dealing'
-                  ? t('status.dealing')
-                  : view.drawer === me.id
-                    ? t('status.drawing')
-                    : view.offerer === me.id
-                      ? t('status.offering')
-                      : tn('status.hold', me.cardCount)}
-          </p>
+          <div className="relative">
+            <Hand
+              cards={[...hand, ...extra]}
+              dealtPairs={extra}
+              hidden={hidden}
+              hover={hover}
+              dealing={phase === 'dealing'}
+              you={you}
+              onArrange={canArrange ? arrange : undefined}
+            />
+            {bubbles[you] && <ReactionBubble key={bubbles[you].key} emote={bubbles[you].emote} className="bubble-you" />}
+          </div>
+          <div className="your-bar">
+            <div className="your-bar-start">
+              {canArrange && (
+                <button type="button" className="shuffle-btn" onClick={shuffle} aria-label={t('bluff.shuffleAria')}>
+                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 7h3.5c2.2 0 3.6 1.1 4.8 3l1.4 2.2c1.2 1.9 2.6 2.8 4.8 2.8H21M3 17h3.5c1.6 0 2.8-.6 3.8-1.7M14.4 8.7c1-1.1 2.2-1.7 3.8-1.7H21M18 4l3 3-3 3M18 14l3 3-3 3" />
+                  </svg>
+                  <span>{t('bluff.shuffle')}</span>
+                </button>
+              )}
+            </div>
+            <p className="your-bar-status text-center text-sm text-pergament-mute">
+              {me.isOut
+                ? t('status.out', { ord: ordinal(placeOf(me.id)), n: placeOf(me.id) })
+                : view.loser === me.id
+                  ? t('status.keptCat')
+                  : phase === 'dealing'
+                    ? t('status.dealing')
+                    : view.drawer === me.id
+                      ? t('status.drawing')
+                      : view.offerer === me.id
+                        ? canArrange
+                          ? t('status.offeringBluff')
+                          : t('status.offering')
+                        : tn('status.hold', me.cardCount)}
+            </p>
+            <div className="your-bar-end">
+              {phase === 'playing' && <ReactionBar onReact={react} disabled={cooldown} />}
+            </div>
+          </div>
         </section>
       </main>
 
+      {flash > 0 && <div key={flash} className="peter-flash" aria-hidden="true" />}
+      <p className="sr-only" aria-live="polite">
+        {announcement}
+      </p>
       {showResult && <Result view={view} you={you} actions={result} />}
       {confirmLeave && <ConfirmLeave note={leaveNote} onStay={() => setConfirmLeave(false)} onLeave={onLeave} />}
     </div>
@@ -361,9 +489,11 @@ function Seat(props: {
   place: number;
   loser: boolean;
   offline: boolean;
+  bubble: Bubble | undefined;
+  shuffles: number;
   style: CSSProperties;
 }) {
-  const { id, name, index, count, role, place, loser, offline, style } = props;
+  const { id, name, index, count, role, place, loser, offline, bubble, shuffles, style } = props;
   const status = loser
     ? t('seat.keptCat')
     : place
@@ -386,11 +516,13 @@ function Seat(props: {
           <span className="block text-xs text-pergament-mute">{status}</span>
         </p>
       </div>
-      <div className="mini-fan" data-seat-hand={id} style={{ '--n': count } as CSSProperties}>
+      {/* Remounted on every shuffle so the animation plays again. */}
+      <div key={shuffles} className={`mini-fan ${shuffles ? 'is-shuffling' : ''}`} data-seat-hand={id} style={{ '--n': count } as CSSProperties}>
         {Array.from({ length: count }, (_, i) => (
-          <CardBack key={i} className="mini" />
+          <CardBack key={i} className="mini" style={{ '--i': i } as CSSProperties} />
         ))}
       </div>
+      {bubble && <ReactionBubble key={bubble.key} emote={bubble.emote} className="bubble-seat" />}
     </li>
   );
 }
@@ -417,28 +549,50 @@ function Pile({ pairs }: { pairs: readonly { cards: readonly [Card, Card] }[] })
   );
 }
 
-function OfferFan({ count, from, enabled, onPick }: { count: number; from: string; enabled: boolean; onPick: (slot: number) => void }) {
+function OfferFan(props: {
+  count: number;
+  from: string;
+  enabled: boolean;
+  /** How often this player has shuffled so far; the fan animates only for new shuffles. */
+  shuffles: number;
+  onPick: (slot: number) => void;
+  onPeek: (slot: number | null) => void;
+}) {
+  const { count, from, enabled, shuffles, onPick, onPeek } = props;
+  const shufflesAtStart = useRef(shuffles).current;
   const ref = useRef<HTMLDivElement>(null);
   const width = useWidth(ref);
   const w = useCardWidth(0.075, 104, 56, 0.105);
   const step = count > 1 ? Math.min(w * 0.62, (width - w) / (count - 1)) : 0;
   const total = w + step * (count - 1);
+  // Stop pointing when the fan goes away (you drew, or the turn moved on).
+  useEffect(() => () => onPeek(null), [onPeek]);
   return (
     <div className="offer" role="group" aria-label={t('offer.aria', { name: from })}>
-      <div ref={ref} className="offer-fan" style={{ height: w * 1.4 + 36 }}>
+      <div
+        ref={ref}
+        className={`offer-fan ${shuffles > shufflesAtStart ? 'is-shuffling' : ''}`}
+        style={{ height: w * 1.4 + 36 }}
+        onPointerLeave={() => onPeek(null)}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onPeek(null);
+        }}
+      >
         {Array.from({ length: count }, (_, i) => {
           const mid = (count - 1) / 2;
           const rot = (i - mid) * Math.min(3, 30 / count);
           return (
             <button
-              key={`${count}-${i}`}
+              key={`${count}-${i}-${shuffles}`}
               type="button"
               className="offer-card"
               data-offer-slot={i}
               disabled={!enabled}
               onClick={() => onPick(i)}
+              onPointerEnter={() => enabled && onPeek(i)}
+              onFocus={() => enabled && onPeek(i)}
               aria-label={t('offer.card', { i: i + 1, n: count, name: from })}
-              style={{ width: w, transform: `translate(${(width - total) / 2 + i * step}px, ${Math.abs(i - mid) * 2.2}px) rotate(${rot}deg)`, zIndex: i }}
+              style={{ width: w, transform: `translate(${(width - total) / 2 + i * step}px, ${Math.abs(i - mid) * 2.2}px) rotate(${rot}deg)`, zIndex: i, '--i': i } as CSSProperties}
             >
               <CardBack />
             </button>
@@ -449,6 +603,14 @@ function OfferFan({ count, from, enabled, onPick }: { count: number; from: strin
   );
 }
 
+interface Drag {
+  readonly id: string;
+  readonly from: number;
+  readonly startX: number;
+  readonly dx: number;
+  readonly moved: boolean;
+}
+
 function Hand(props: {
   cards: readonly Card[];
   dealtPairs: readonly Card[];
@@ -456,30 +618,96 @@ function Hand(props: {
   hover: number | null;
   dealing: boolean;
   you: PlayerId;
+  /** Set when you may move your cards around. */
+  onArrange?: (ids: string[]) => void;
 }) {
-  const { cards, dealtPairs, hidden, hover, dealing, you } = props;
+  const { cards, dealtPairs, hidden, hover, dealing, you, onArrange } = props;
   const ref = useRef<HTMLDivElement>(null);
   const width = useWidth(ref);
   const w = useCardWidth(0.085, 118, 60, 0.12);
   const n = cards.length;
   const step = n > 1 ? Math.min(w * 0.68, (width - w) / (n - 1)) : 0;
   const total = w + step * (n - 1);
+  const x0 = (width - total) / 2;
   const pairIds = new Set(dealtPairs.map((c) => c.id));
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
+
+  // Where the dragged card would land, and the order the others make room in.
+  const target = drag && step > 0 ? Math.max(0, Math.min(n - 1, Math.round(drag.from + drag.dx / step))) : null;
+  const layout = cards.map((c) => c.id);
+  if (drag && target !== null) {
+    layout.splice(drag.from, 1);
+    layout.splice(target, 0, drag.id);
+  }
+
+  const move = (from: number, to: number) => {
+    if (!onArrange || from === to) return;
+    const ids = cards.map((c) => c.id);
+    const [id] = ids.splice(from, 1);
+    ids.splice(to, 0, id!);
+    onArrange(ids);
+  };
+
+  // Keep keyboard focus on the card you just moved.
+  useEffect(() => {
+    if (!focusId) return;
+    ref.current?.querySelector<HTMLElement>(`[data-hand-card="${focusId}"]`)?.focus();
+  }, [focusId, cards]);
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>, id: string, from: number) => {
+    if (!onArrange || e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ id, from, startX: e.clientX, dx: 0, moved: false });
+  };
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    setDrag((d) => (d ? { ...d, dx: e.clientX - d.startX, moved: d.moved || Math.abs(e.clientX - d.startX) > 4 } : d));
+  };
+  const onPointerUp = () => {
+    if (drag?.moved && target !== null) move(drag.from, target);
+    setDrag(null);
+  };
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>, id: string, from: number) => {
+    const to = e.key === 'ArrowLeft' ? from - 1 : e.key === 'ArrowRight' ? from + 1 : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : null;
+    if (to === null || to < 0 || to >= n) return;
+    e.preventDefault();
+    setFocusId(id);
+    move(from, to);
+  };
+
   return (
-    <div ref={ref} className={`hand-row ${dealing ? 'is-dealing' : ''}`} style={{ height: w * 1.4 + 40 }} data-seat-hand={you}>
+    <div
+      ref={ref}
+      className={`hand-row ${dealing ? 'is-dealing' : ''} ${onArrange ? 'can-arrange' : ''}`}
+      style={{ height: w * 1.4 + 40 }}
+      data-seat-hand={you}
+    >
       {cards.map((c, i) => {
+        const dragging = drag?.id === c.id && drag.moved;
+        const slot = layout.indexOf(c.id);
         const mid = (n - 1) / 2;
-        const rot = (i - mid) * Math.min(2.6, 26 / Math.max(n, 1));
+        const rot = dragging ? 0 : (slot - mid) * Math.min(2.6, 26 / Math.max(n, 1));
+        const x = dragging ? x0 + drag.from * step + drag.dx : x0 + slot * step;
+        const y = dragging ? -18 : Math.abs(slot - mid) ** 1.6 * 1.4;
         return (
           <div
             key={c.id}
-            className={`hand-card ${pairIds.has(c.id) ? 'is-dealt-pair' : ''} ${hover === i ? 'is-hovered' : ''}`}
+            className={`hand-card ${pairIds.has(c.id) ? 'is-dealt-pair' : ''} ${hover === i ? 'is-hovered' : ''} ${dragging ? 'is-dragging' : ''}`}
             data-hand-card={c.id}
+            tabIndex={onArrange ? 0 : undefined}
+            role={onArrange ? 'button' : undefined}
+            aria-label={onArrange ? t('bluff.cardAria', { card: cardName(c.face) }) : undefined}
+            onPointerDown={(e) => onPointerDown(e, c.id, i)}
+            onPointerMove={drag ? onPointerMove : undefined}
+            onPointerUp={drag ? onPointerUp : undefined}
+            onPointerCancel={() => setDrag(null)}
+            onKeyDown={(e) => onKeyDown(e, c.id, i)}
+            onBlur={() => setFocusId((f) => (f === c.id ? null : f))}
             style={{
               width: w,
-              transform: `translate(${(width - total) / 2 + i * step}px, ${Math.abs(i - mid) ** 1.6 * 1.4}px) rotate(${rot}deg)`,
+              transform: `translate(${x}px, ${y}px) rotate(${rot}deg)`,
               visibility: hidden.has(c.id) ? 'hidden' : undefined,
-              zIndex: i,
+              zIndex: dragging ? 100 : slot,
               '--i': i,
             } as CSSProperties}
           >
@@ -490,6 +718,26 @@ function Hand(props: {
         );
       })}
     </div>
+  );
+}
+
+function ReactionBar({ onReact, disabled }: { onReact: (emote: Emote) => void; disabled: boolean }) {
+  return (
+    <div className="reaction-bar" role="group" aria-label={t('react.bar')}>
+      {EMOTES.map((emote) => (
+        <button key={emote} type="button" onClick={() => onReact(emote)} disabled={disabled} aria-label={t(`react.${emote}`)} title={t(`react.${emote}`)}>
+          <span aria-hidden="true">{EMOJI[emote]}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ReactionBubble({ emote, className }: { emote: Emote; className: string }) {
+  return (
+    <span className={`reaction-bubble ${className}`} aria-hidden="true">
+      {EMOJI[emote]}
+    </span>
   );
 }
 

@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, type CSSProperties } from 'react';
 import { DECK, render } from '../cards.js';
 import { PETER, type Card } from '@sp/engine';
 
@@ -23,6 +23,6 @@ export const CardFace = memo(function CardFace({ card, className = '' }: { card:
   );
 });
 
-export function CardBack({ className = '' }: { className?: string }) {
-  return <span className={`play-card play-card-back ${className}`} aria-hidden="true" />;
+export function CardBack({ className = '', style }: { className?: string; style?: CSSProperties }) {
+  return <span className={`play-card play-card-back ${className}`} style={style} aria-hidden="true" />;
 }

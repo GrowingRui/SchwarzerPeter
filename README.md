@@ -40,18 +40,20 @@ Our first deck brings the game to the Swiss mountains. It has 18 animals you mig
 
 Steinbock, Murmeltier, Gämse, Bartgeier, Fuchs, Hirsch, Adler, Igel, Eule, Kuh, Bernhardiner, Wolf, Bär, Schneehase, Eichhörnchen, Dachs, Forelle and Alpensalamander. Matching cards share a number in the corner, so pairs are easy to spot even on a phone.
 
-## What's coming
-
-- **Play with friends.** Create a private room and send the link. Everyone joins from their own phone or computer.
-- **Bluffing that works online.** Shuffle your hand while someone is choosing, see where their hand hovers, and react with a grin or a gasp.
-- **Your language.** Deutsch, Français, Italiano and English.
-- **Safe for kids.** No open chat and as little personal data as possible.
-
 ## Play
 
 Visit **[schwarzerpeter.vercel.app](https://schwarzerpeter.vercel.app)**. It's free, works in any browser, and there's nothing to install.
 
-You can already **[play a full match against 1 to 5 bots](https://schwarzerpeter.vercel.app/play)**. The bots pick their cards at random, so just like at a real table, it all comes down to luck.
+- **Play with friends.** Create a room and send the link. Everyone joins from their own phone or computer, and empty seats can be filled with bots.
+- **[Practise against 1 to 5 bots](https://schwarzerpeter.vercel.app/play).** The bots pick their cards at random, so just like at a real table, it all comes down to luck.
+- **Bluff.** Drag or shuffle your cards while someone is choosing, watch which card they point at, and react with a grin or a gasp.
+- **English or German.** Switch any time with EN / DE at the top of the page.
+- **Safe for kids.** No open chat and as little personal data as possible.
+
+## What's coming
+
+- **Quick match.** Sit down at an open table with other players.
+- **Your stats.** An optional account to keep track of your games.
 
 ---
 

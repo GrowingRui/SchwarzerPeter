@@ -12,12 +12,13 @@ import {
   currentTurn,
   drawCard,
   eventFor,
+  rearrangeHand,
   viewFor,
   type GameEvent,
   type GameState,
   type PlayerId,
 } from '@sp/engine';
-import { cleanName, type ClientMessage, type ErrorCode, type RoomInfo, type ServerMessage, type Step } from '@sp/engine/protocol';
+import { cleanName, type ClientMessage, type Emote, type ErrorCode, type RoomInfo, type ServerMessage, type Step } from '@sp/engine/protocol';
 
 export interface Member {
   readonly id: PlayerId;
@@ -132,6 +133,10 @@ export function disconnect(s: RoomState, memberId: PlayerId, now: number, random
 export function handle(s: RoomState, memberId: PlayerId, msg: ClientMessage, now: number, random: Random): RoomResult {
   const me = s.members.find((m) => m.id === memberId);
   if (!me) throw new RoomError('NOT_JOINED', 'Say hello first.');
+  // Peeks and reactions are only passed on. They return the same state object,
+  // which tells the Durable Object there is nothing to store.
+  if (msg.t === 'peek') return peek(s, memberId, msg.slot);
+  if (msg.t === 'react') return react(s, memberId, msg.emote);
   s = touch(s, now);
   switch (msg.t) {
     case 'hello':
@@ -144,7 +149,44 @@ export function handle(s: RoomState, memberId: PlayerId, msg: ClientMessage, now
       return backToLobby(s, memberId);
     case 'leave':
       return leave(s, memberId, now, random);
+    case 'arrange':
+      return arrange(s, memberId, msg.order);
   }
+}
+
+/** You put your hand in a new order. The others only learn that you did. */
+function arrange(s: RoomState, memberId: PlayerId, order: readonly string[]): RoomResult {
+  if (s.status !== 'playing' || !s.game) throw new RoomError('WRONG_PHASE', 'There is no game in progress.');
+  let game: GameState;
+  try {
+    game = rearrangeHand(s.game, memberId, order).state;
+  } catch (e) {
+    if (e instanceof GameError) throw new RoomError('BAD_MESSAGE', 'That order doesn’t match your cards.');
+    throw e;
+  }
+  const out = s.members
+    .filter((m) => !m.bot && m.id !== memberId)
+    .map((m) => ({ to: m.id, msg: { t: 'step', step: { kind: 'rearranged', playerId: memberId } } }) satisfies Outgoing);
+  return { state: { ...s, game }, out };
+}
+
+/** The drawer points at a card: only the person holding the cards sees where. */
+function peek(s: RoomState, memberId: PlayerId, slot: number | null): RoomResult {
+  const turn = s.status === 'playing' && s.game ? currentTurn(s.game) : null;
+  if (!turn || turn.drawer !== memberId) return { state: s, out: [] };
+  if (slot !== null && slot >= turn.slots) return { state: s, out: [] };
+  const offerer = s.members.find((m) => m.id === turn.offerer);
+  if (!offerer || offerer.bot) return { state: s, out: [] };
+  return { state: s, out: [{ to: offerer.id, msg: { t: 'step', step: { kind: 'peek', playerId: memberId, slot } } }] };
+}
+
+/** An emote for everyone else at the table. */
+function react(s: RoomState, memberId: PlayerId, emote: Emote): RoomResult {
+  if (s.status === 'lobby') return { state: s, out: [] };
+  const out = s.members
+    .filter((m) => !m.bot && m.id !== memberId)
+    .map((m) => ({ to: m.id, msg: { t: 'step', step: { kind: 'reaction', playerId: memberId, emote } } }) satisfies Outgoing);
+  return { state: s, out };
 }
 
 function start(s: RoomState, memberId: PlayerId, bots: number, now: number, random: Random): RoomResult {

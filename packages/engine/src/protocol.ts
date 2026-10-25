@@ -11,12 +11,27 @@ import type { PlayerView } from './view';
  * - action: someone drew a card (animate the draw)
  * - hover: a player is choosing one of your cards
  * - sync: jump straight to this view, e.g. after reconnecting
+ *
+ * Live steps are shown the moment they arrive, without waiting for animations:
+ * - peek: the player drawing from you is pointing at one of your cards (null: at none)
+ * - rearranged: a player moved their cards around (only that it happened, never the order)
+ * - reaction: a player sent an emote
  */
 export type Step =
   | { readonly kind: 'deal'; readonly events: readonly GameEvent[]; readonly view: PlayerView }
   | { readonly kind: 'action'; readonly events: readonly GameEvent[]; readonly view: PlayerView }
   | { readonly kind: 'hover'; readonly playerId: PlayerId; readonly slot: number }
-  | { readonly kind: 'sync'; readonly view: PlayerView };
+  | { readonly kind: 'sync'; readonly view: PlayerView }
+  | { readonly kind: 'peek'; readonly playerId: PlayerId; readonly slot: number | null }
+  | { readonly kind: 'rearranged'; readonly playerId: PlayerId }
+  | { readonly kind: 'reaction'; readonly playerId: PlayerId; readonly emote: Emote };
+
+export type LiveStep = Extract<Step, { kind: 'peek' | 'rearranged' | 'reaction' }>;
+export const isLiveStep = (s: Step): s is LiveStep => s.kind === 'peek' || s.kind === 'rearranged' || s.kind === 'reaction';
+
+/** The fixed set of reactions. No free text, so the table stays friendly. */
+export const EMOTES = ['grin', 'gasp', 'laugh', 'sweat', 'shrug', 'clap'] as const;
+export type Emote = (typeof EMOTES)[number];
 
 export type RoomStatus = 'lobby' | 'playing' | 'over';
 
@@ -42,7 +57,12 @@ export type ClientMessage =
   | { readonly t: 'start'; readonly bots: number }
   | { readonly t: 'draw'; readonly slot: number }
   | { readonly t: 'again' }
-  | { readonly t: 'leave' };
+  | { readonly t: 'leave' }
+  /** Your hand in a new order: every card id, once. */
+  | { readonly t: 'arrange'; readonly order: readonly string[] }
+  /** While drawing: the face-down card you're pointing at, or null. */
+  | { readonly t: 'peek'; readonly slot: number | null }
+  | { readonly t: 'react'; readonly emote: Emote };
 
 export type ErrorCode =
   | 'ROOM_NOT_FOUND'
@@ -98,6 +118,16 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
       return { t: 'again' };
     case 'leave':
       return { t: 'leave' };
+    case 'arrange':
+      return Array.isArray(o.order) && o.order.length <= 40 && o.order.every((id) => typeof id === 'string' && id.length <= 32)
+        ? { t: 'arrange', order: o.order as string[] }
+        : null;
+    case 'peek':
+      return o.slot === null || (Number.isInteger(o.slot) && (o.slot as number) >= 0 && (o.slot as number) < 64)
+        ? { t: 'peek', slot: o.slot as number | null }
+        : null;
+    case 'react':
+      return (EMOTES as readonly unknown[]).includes(o.emote) ? { t: 'react', emote: o.emote as Emote } : null;
     default:
       return null;
   }

@@ -26,6 +26,8 @@ const random = () => crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32;
 
 export class Room extends DurableObject<Env> {
   private state: RoomState | null | undefined;
+  /** When each player last sent an emote. In memory only: losing it on hibernation is harmless. */
+  private lastReaction = new Map<string, number>();
 
   /** Called once by the worker when the room is created. Fails if the code is taken. */
   async init(code: string): Promise<boolean> {
@@ -62,6 +64,11 @@ export class Room extends DurableObject<Env> {
         await this.commit(result);
       } else {
         if (!att.memberId) return send(ws, { t: 'error', code: 'NOT_JOINED', message: 'Join the room first.' });
+        // At most one emote per second per player; extra ones are dropped quietly.
+        if (msg.t === 'react') {
+          if (now - (this.lastReaction.get(att.memberId) ?? 0) < 1000) return;
+          this.lastReaction.set(att.memberId, now);
+        }
         const result = handle(state, att.memberId, msg, now, random);
         if (msg.t === 'leave') ws.serializeAttachment({ memberId: null } satisfies Attachment);
         await this.commit(result);
@@ -111,6 +118,11 @@ export class Room extends DurableObject<Env> {
   }
 
   private async commit(result: RoomResult) {
+    if (result.state === this.state) {
+      // Nothing changed (a peek or a reaction): just pass the messages on.
+      this.deliver(result.out);
+      return;
+    }
     await this.save(result.state);
     this.deliver(result.out);
     const at = nextAlarm(result.state);
