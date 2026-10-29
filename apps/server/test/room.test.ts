@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, currentTurn, type GameState } from '@sp/engine';
-import type { ServerMessage, Step } from '@sp/engine/protocol';
+import { QUICK_SEATS, QUICK_WAIT_MS, type ServerMessage, type Step } from '@sp/engine/protocol';
 import { RoomError, TIMING, disconnect, handle, join, newRoom, nextAlarm, roomInfo, tick, type Outgoing, type RoomState } from '../src/room';
 
 const seeded = (seed: number) => {
@@ -241,6 +241,73 @@ describe('bluffing', () => {
     expect(r.state).toBe(state);
     expect(r.out.map((o) => o.to).sort()).toEqual([ids[0], ids[2]].sort());
     expect(steps(r.out, ids[0]!)).toEqual([{ kind: 'reaction', playerId: ids[1], emote: 'gasp' }]);
+  });
+});
+
+describe('quick-match tables', () => {
+  const quickTable = () => newRoom('QUICK', 0, 'quick');
+  const seat = (s: RoomState, name: string, now: number, random: () => number) => join(s, name, undefined, now, random);
+
+  it('has no host, and the first person starts a 15-second countdown', () => {
+    const random = seeded(2);
+    const { state, out, memberId } = seat(quickTable(), 'Rui', 1000, random);
+    expect(state.hostId).toBeNull();
+    expect(state.startAt).toBe(1000 + QUICK_WAIT_MS);
+    const info = to(out, memberId).find((m) => m.t === 'room');
+    expect(info).toMatchObject({ room: { mode: 'quick', startsInMs: QUICK_WAIT_MS, maxPlayers: QUICK_SEATS } });
+    expect(nextAlarm(state)).toBe(1000 + QUICK_WAIT_MS);
+    expect(errorCode(() => handle(state, memberId, { t: 'start', bots: 3 }, 1001, random))).toBe('NOT_HOST');
+  });
+
+  it('starts at once when the table is full, without bots', () => {
+    const random = seeded(3);
+    let state = quickTable();
+    for (const [i, name] of ['A', 'B', 'C', 'D'].entries()) state = seat(state, name, i * 100, random).state;
+    expect(state.status).toBe('playing');
+    expect(state.members.filter((m) => m.bot)).toHaveLength(0);
+    expect(errorCode(() => seat(state, 'E', 500, random))).toBe('GAME_IN_PROGRESS');
+  });
+
+  it('fills the empty seats with bots when the wait is over', () => {
+    const random = seeded(4);
+    let state = seat(quickTable(), 'Rui', 0, random).state;
+    state = seat(state, 'Lena', 2000, random).state;
+    expect(tick(state, QUICK_WAIT_MS - 1, random).state.status).toBe('lobby');
+    const started = tick(state, QUICK_WAIT_MS, random);
+    expect(started.state.status).toBe('playing');
+    expect(started.state.members).toHaveLength(QUICK_SEATS);
+    expect(started.state.members.filter((m) => m.bot)).toHaveLength(2);
+    expect(started.out.some((o) => o.msg.t === 'step' && o.msg.step.kind === 'deal')).toBe(true);
+  });
+
+  it('frees the seat of someone who leaves or loses connection while waiting', () => {
+    const random = seeded(5);
+    let state = seat(quickTable(), 'Rui', 0, random).state;
+    const lena = seat(state, 'Lena', 100, random);
+    state = disconnect(lena.state, lena.memberId, 200, random).state;
+    expect(state.members.map((m) => m.name)).toEqual(['Rui']);
+    state = handle(state, state.members[0]!.id, { t: 'leave' }, 300, random).state;
+    expect(state.members).toHaveLength(0);
+    expect(state.startAt).toBeNull();
+    expect(tick(state, QUICK_WAIT_MS + 1, random).state.status).toBe('lobby');
+  });
+
+  it('plays a whole quick game and offers no host-only rematch', () => {
+    const random = seeded(6);
+    const first = seat(quickTable(), 'Rui', 0, random);
+    let state = first.state;
+    state = tick(state, QUICK_WAIT_MS, random).state;
+    expect(state.status).toBe('playing');
+    while (state.status === 'playing') state = tick(state, nextAlarm(state)!, random).state;
+    expect(state.status).toBe('over');
+    expect(errorCode(() => handle(state, first.memberId, { t: 'again' }, 1, random))).toBe('NOT_HOST');
+  });
+
+  it('treats rooms stored before quick match as private', () => {
+    const { mode: _mode, startAt: _startAt, ...old } = newRoom('OLDER', 0);
+    const r = join(old, 'Rui', undefined, 0, seeded(7));
+    expect(r.state.hostId).toBe(r.memberId);
+    expect(roomInfo(r.state).mode).toBe('private');
   });
 });
 

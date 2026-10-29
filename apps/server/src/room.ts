@@ -18,7 +18,18 @@ import {
   type GameState,
   type PlayerId,
 } from '@sp/engine';
-import { cleanName, type ClientMessage, type Emote, type ErrorCode, type RoomInfo, type ServerMessage, type Step } from '@sp/engine/protocol';
+import {
+  QUICK_SEATS,
+  QUICK_WAIT_MS,
+  cleanName,
+  type ClientMessage,
+  type Emote,
+  type ErrorCode,
+  type RoomInfo,
+  type RoomMode,
+  type ServerMessage,
+  type Step,
+} from '@sp/engine/protocol';
 
 export interface Member {
   readonly id: PlayerId;
@@ -31,6 +42,10 @@ export interface Member {
 
 export interface RoomState {
   readonly code: string;
+  /** Missing in rooms stored before quick match existed: treat as private. */
+  readonly mode?: RoomMode;
+  /** Quick-match tables in the lobby: when the game starts if the table isn't full first. */
+  readonly startAt?: number | null;
   readonly hostId: PlayerId | null;
   readonly members: readonly Member[];
   readonly status: 'lobby' | 'playing' | 'over';
@@ -81,17 +96,22 @@ export const TIMING = {
 
 const BOT_NAMES = ['Heidi', 'Ueli', 'Vreni', 'Sepp', 'Luca', 'Mia', 'Gian', 'Anna'];
 
-export function newRoom(code: string, now: number): RoomState {
-  return { code, hostId: null, members: [], status: 'lobby', round: 0, game: null, deadline: null, deadlineTurn: null, lastActivity: now };
+export function newRoom(code: string, now: number, mode: RoomMode = 'private'): RoomState {
+  return { code, mode, startAt: null, hostId: null, members: [], status: 'lobby', round: 0, game: null, deadline: null, deadlineTurn: null, lastActivity: now };
 }
 
+const isQuick = (s: RoomState) => s.mode === 'quick';
+const seatsFor = (s: RoomState) => (isQuick(s) ? QUICK_SEATS : MAX_PLAYERS);
+
 /** Public room info: never includes tokens. */
-export function roomInfo(s: RoomState): RoomInfo {
+export function roomInfo(s: RoomState, now = Date.now()): RoomInfo {
   return {
     code: s.code,
+    mode: s.mode ?? 'private',
+    startsInMs: isQuick(s) && s.status === 'lobby' && s.startAt ? Math.max(0, s.startAt - now) : null,
     status: s.status,
     round: s.round,
-    maxPlayers: MAX_PLAYERS,
+    maxPlayers: seatsFor(s),
     members: s.members.map((m) => ({ id: m.id, name: m.name, isBot: m.bot, isHost: m.id === s.hostId, connected: m.bot || m.connected })),
   };
 }
@@ -106,24 +126,34 @@ export function join(s: RoomState, rawName: string, token: string | undefined, n
   if (existing) {
     const name = s.status === 'lobby' ? cleanName(rawName) || existing.name : existing.name;
     const state = touch(updateMember(s, existing.id, { connected: true, name }), now);
-    const out: Outgoing[] = [{ to: existing.id, msg: { t: 'welcome', you: existing.id, token: existing.token } }, ...broadcastRoom(state)];
+    const out: Outgoing[] = [{ to: existing.id, msg: { t: 'welcome', you: existing.id, token: existing.token } }, ...broadcastRoom(state, now)];
     if (state.game) out.push({ to: existing.id, msg: { t: 'step', step: { kind: 'sync', view: viewFor(state.game, existing.id) } } });
     return { state: reschedule(state, now, random, { force: isDrawer(state, existing.id) }), out, memberId: existing.id };
   }
   if (s.status !== 'lobby') throw new RoomError('GAME_IN_PROGRESS', 'This game has already started.');
-  if (s.members.length >= MAX_PLAYERS) throw new RoomError('ROOM_FULL', 'This room is full.');
+  if (s.members.length >= seatsFor(s)) throw new RoomError('ROOM_FULL', 'This room is full.');
 
   const id = `p${randomId(random, 8)}`;
   const member: Member = { id, name: uniqueName(s, cleanName(rawName) || 'Player'), token: randomId(random, 32), bot: false, connected: true };
+  const welcome: Outgoing = { to: id, msg: { t: 'welcome', you: id, token: member.token } };
+  if (isQuick(s)) {
+    const state = touch({ ...s, members: [...s.members, member], startAt: s.startAt ?? now + QUICK_WAIT_MS }, now);
+    if (state.members.length >= QUICK_SEATS) {
+      const started = startGame(state, 0, now, random);
+      return { state: started.state, out: [welcome, ...started.out], memberId: id };
+    }
+    return { state, out: [welcome, ...broadcastRoom(state, now)], memberId: id };
+  }
   const state = touch({ ...s, members: [...s.members, member], hostId: s.hostId ?? id }, now);
-  return { state, out: [{ to: id, msg: { t: 'welcome', you: id, token: member.token } }, ...broadcastRoom(state)], memberId: id };
+  return { state, out: [welcome, ...broadcastRoom(state, now)], memberId: id };
 }
 
 /** The player's last connection closed. */
 export function disconnect(s: RoomState, memberId: PlayerId, now: number, random: Random): RoomResult {
   if (!s.members.some((m) => m.id === memberId)) return { state: s, out: [] };
+  if (isQuick(s) && s.status === 'lobby') return leave(touch(s, now), memberId, now, random);
   const state = touch(updateMember(s, memberId, { connected: false }), now);
-  return { state: reschedule(state, now, random, { force: isDrawer(state, memberId) }), out: broadcastRoom(state) };
+  return { state: reschedule(state, now, random, { force: isDrawer(state, memberId) }), out: broadcastRoom(state, now) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -146,7 +176,7 @@ export function handle(s: RoomState, memberId: PlayerId, msg: ClientMessage, now
     case 'draw':
       return playDraw(s, memberId, msg.slot, now, random);
     case 'again':
-      return backToLobby(s, memberId);
+      return backToLobby(s, memberId, now);
     case 'leave':
       return leave(s, memberId, now, random);
     case 'arrange':
@@ -190,11 +220,19 @@ function react(s: RoomState, memberId: PlayerId, emote: Emote): RoomResult {
 }
 
 function start(s: RoomState, memberId: PlayerId, bots: number, now: number, random: Random): RoomResult {
-  if (memberId !== s.hostId) throw new RoomError('NOT_HOST', 'Only the host can start the game.');
+  if (isQuick(s) || memberId !== s.hostId) throw new RoomError('NOT_HOST', 'Only the host can start the game.');
   if (s.status !== 'lobby') throw new RoomError('WRONG_PHASE', 'The game has already started.');
   const humans = s.members.filter((m) => !m.bot);
-  const botCount = Math.max(0, Math.min(bots, MAX_PLAYERS - humans.length));
-  if (humans.length + botCount < 2) throw new RoomError('NOT_ENOUGH_PLAYERS', 'Invite a friend or add a bot to start.');
+  if (humans.length + Math.max(0, Math.min(bots, MAX_PLAYERS - humans.length)) < 2) {
+    throw new RoomError('NOT_ENOUGH_PLAYERS', 'Invite a friend or add a bot to start.');
+  }
+  return startGame(s, bots, now, random);
+}
+
+/** Deal a new game for everyone in the room plus the given number of bots. */
+function startGame(s: RoomState, bots: number, now: number, random: Random): RoomResult {
+  const humans = s.members.filter((m) => !m.bot);
+  const botCount = Math.max(0, Math.min(bots, seatsFor(s) - humans.length));
 
   const taken = new Set(humans.map((m) => m.name));
   const free = shuffle(BOT_NAMES.filter((n) => !taken.has(n)), random);
@@ -212,8 +250,8 @@ function start(s: RoomState, memberId: PlayerId, bots: number, now: number, rand
     seed: Math.floor(random() * 2 ** 31),
   });
 
-  let state: RoomState = { ...s, members, game, status: game.phase === 'over' ? 'over' : 'playing', round: s.round + 1 };
-  const out = [...broadcastRoom(state), ...sendSteps(state, (id) => ({ kind: 'deal', events: events.map((e) => eventFor(e, id)), view: viewFor(game, id) }))];
+  let state: RoomState = { ...s, members, game, startAt: null, status: game.phase === 'over' ? 'over' : 'playing', round: s.round + 1 };
+  const out = [...broadcastRoom(state, now), ...sendSteps(state, (id) => ({ kind: 'deal', events: events.map((e) => eventFor(e, id)), view: viewFor(game, id) }))];
   state = reschedule(state, now, random, { force: true, extra: TIMING.afterDeal });
   return { state, out };
 }
@@ -223,25 +261,26 @@ function playDraw(s: RoomState, memberId: PlayerId, slot: number, now: number, r
   return applyDraw(s, memberId, slot, now, random, false);
 }
 
-function backToLobby(s: RoomState, memberId: PlayerId): RoomResult {
-  if (memberId !== s.hostId) throw new RoomError('NOT_HOST', 'Only the host can start another round.');
+function backToLobby(s: RoomState, memberId: PlayerId, now: number): RoomResult {
+  if (isQuick(s) || memberId !== s.hostId) throw new RoomError('NOT_HOST', 'Only the host can start another round.');
   if (s.status !== 'over') throw new RoomError('WRONG_PHASE', 'The game isn’t over yet.');
   // Bots leave with the old game, and so do players who left during it.
   const state: RoomState = { ...s, status: 'lobby', game: null, members: s.members.filter((m) => !m.bot), deadline: null, deadlineTurn: null };
-  return { state, out: broadcastRoom(state) };
+  return { state, out: broadcastRoom(state, now) };
 }
 
 function leave(s: RoomState, memberId: PlayerId, now: number, random: Random): RoomResult {
   let state: RoomState;
   if (s.status === 'lobby') {
-    state = { ...s, members: s.members.filter((m) => m.id !== memberId) };
+    const members = s.members.filter((m) => m.id !== memberId);
+    state = { ...s, members, startAt: isQuick(s) && !members.length ? null : (s.startAt ?? null) };
   } else {
     // Mid-game a bot takes over the seat for the rest of the round.
     state = updateMember(s, memberId, { bot: true, token: '', connected: false });
   }
   if (state.hostId === memberId) state = { ...state, hostId: state.members.find((m) => !m.bot)?.id ?? null };
   state = reschedule(state, now, random, { force: isDrawer(state, memberId) });
-  return { state, out: broadcastRoom(state) };
+  return { state, out: broadcastRoom(state, now) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -250,6 +289,9 @@ function leave(s: RoomState, memberId: PlayerId, now: number, random: Random): R
 
 /** The alarm fired: play the current turn if its deadline has passed. */
 export function tick(s: RoomState, now: number, random: Random): RoomResult & { expired: boolean } {
+  if (isQuick(s) && s.status === 'lobby' && s.startAt && now >= s.startAt && s.members.some((m) => !m.bot)) {
+    return { ...startGame(s, QUICK_SEATS, now, random), expired: false };
+  }
   if (s.status === 'playing' && s.game && s.deadline !== null && now >= s.deadline && s.game.turn === s.deadlineTurn) {
     const turn = currentTurn(s.game);
     if (turn) return { ...applyDraw(s, turn.drawer, Math.floor(random() * turn.slots), now, random, true), expired: false };
@@ -261,6 +303,7 @@ export function tick(s: RoomState, now: number, random: Random): RoomResult & { 
 /** When the Durable Object should wake up next. */
 export function nextAlarm(s: RoomState): number | null {
   if (s.deadline !== null) return s.deadline;
+  if (isQuick(s) && s.status === 'lobby' && s.startAt) return s.startAt;
   const nobodyHere = !s.members.some((m) => !m.bot && m.connected);
   return nobodyHere ? s.lastActivity + TIMING.idleExpiry : null;
 }
@@ -291,7 +334,7 @@ function applyDraw(s: RoomState, drawerId: PlayerId, slot: number, now: number, 
   const next = result.state;
   let state: RoomState = { ...s, game: next, status: next.phase === 'over' ? 'over' : 'playing' };
   out.push(...sendSteps(state, (id) => ({ kind: 'action', events: result.events.map((e) => eventFor(e, id)), view: viewFor(next, id) })));
-  if (state.status === 'over') out.push(...broadcastRoom(state));
+  if (state.status === 'over') out.push(...broadcastRoom(state, now));
   state = reschedule(state, now, random, { force: true });
   return { state, out };
 }
@@ -321,8 +364,8 @@ function sendSteps(s: RoomState, stepFor: (id: PlayerId) => Step): Outgoing[] {
   return s.members.filter((m) => !m.bot).map((m) => ({ to: m.id, msg: { t: 'step', step: stepFor(m.id) } }));
 }
 
-function broadcastRoom(s: RoomState): Outgoing[] {
-  const room = roomInfo(s);
+function broadcastRoom(s: RoomState, now: number): Outgoing[] {
+  const room = roomInfo(s, now);
   return s.members.filter((m) => !m.bot).map((m) => ({ to: m.id, msg: { t: 'room', room } }));
 }
 

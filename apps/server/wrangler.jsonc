@@ -4,10 +4,16 @@
   "main": "src/worker.ts",
   "compatibility_date": "2026-10-01",
   "durable_objects": {
-    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+    "bindings": [
+      { "name": "ROOMS", "class_name": "Room" },
+      { "name": "MATCHMAKER", "class_name": "Matchmaker" }
+    ]
   },
   // SQLite-backed Durable Objects are the ones available on the Workers Free plan.
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Room"] },
+    { "tag": "v2", "new_sqlite_classes": ["Matchmaker"] }
+  ],
   "vars": {
     "ALLOWED_ORIGINS": "https://schwarzerpeter.vercel.app"
   },

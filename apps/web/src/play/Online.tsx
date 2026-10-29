@@ -1,11 +1,148 @@
-import { useEffect, useMemo, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
 import type { ErrorCode, RoomInfo } from '@sp/engine/protocol';
 import type { PlayerId } from '@sp/engine';
-import { RoomClient, createRoom } from './room-client';
+import { RoomClient, createRoom, findQuickTable } from './room-client';
 import { PLAY_PATH, roomLink, saveName, savedName } from './config';
 import { Table } from './Table';
 import { TopBar, useDocumentTitle } from './Setup';
-import { t } from '../i18n';
+import { t, tn } from '../i18n';
+
+/* ------------------------------------------------------------------ */
+/* Quick match                                                         */
+/* ------------------------------------------------------------------ */
+
+/** Get a seat at the table that is filling up and go there. */
+async function goToQuickTable(name: string) {
+  const code = await findQuickTable();
+  saveName(name);
+  sessionStorage.setItem('sp.autojoin', code);
+  location.replace(`${PLAY_PATH}?room=${code}&quick=1`);
+}
+
+/** Pick a name and find a table. With `auto`, go straight away (e.g. "Find another table"). */
+export function QuickMatch({ auto }: { auto: boolean }) {
+  const [name, setName] = useState(savedName);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useDocumentTitle(t('quick.docTitle'));
+
+  const find = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await goToQuickTable(name.trim() || t('player'));
+    } catch {
+      setBusy(false);
+      setError(t('create.error'));
+    }
+  };
+  const started = useRef(false);
+  useEffect(() => {
+    if (auto && !started.current) {
+      started.current = true;
+      void find();
+    }
+  });
+
+  if (auto && busy) return <Waiting text={t('quick.finding')} />;
+  return (
+    <Screen>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void find();
+        }}
+        className="panel frame elev-2"
+      >
+        <Glow />
+        <h1 className="h-display relative text-[clamp(2.2rem,6vw,3.2rem)]">{t('quick.heading')}</h1>
+        <p className="relative mt-3 max-w-md text-pergament-dim">{t('quick.lead')}</p>
+        <NameField value={name} onChange={setName} />
+        {error && (
+          <p className="relative mt-6 text-glut" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="relative mt-10 flex flex-wrap items-center gap-5">
+          <button type="submit" className="btn btn-glut text-base" disabled={busy}>
+            {busy ? t('quick.finding') : t('quick.find')}
+          </button>
+          <a href={`${PLAY_PATH}?create=1`} className="link text-[15px]">
+            {t('quick.friends')}
+          </a>
+        </div>
+      </form>
+    </Screen>
+  );
+}
+
+/** The table we were sent to started just before we got there: quietly find another. */
+function FindAnotherTable() {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    goToQuickTable(savedName() || t('player')).catch(() => setFailed(true));
+  }, []);
+  if (failed) return <QuickMatch auto={false} />;
+  return <Waiting text={t('quick.requeue')} />;
+}
+
+function QuickLobby({ room, you, roomAt, onLeave }: { room: RoomInfo; you: PlayerId; roomAt: number; onLeave: () => void }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(timer);
+  }, []);
+  const left = room.startsInMs === null ? null : Math.max(0, Math.ceil((roomAt + room.startsInMs - now) / 1000));
+  const people = room.members.filter((m) => !m.isBot);
+  const open = Math.max(0, room.maxPlayers - people.length);
+
+  return (
+    <Screen>
+      <div className="panel frame elev-2">
+        <Glow />
+        <h1 className="h-display relative text-[clamp(2rem,5.5vw,2.8rem)]">{t('quick.waitTitle')}</h1>
+        <p className="relative mt-3 max-w-md text-pergament-dim">{t('quick.waitLead', { seats: room.maxPlayers })}</p>
+        <p className="relative mt-7 flex items-baseline gap-3" role="timer" aria-live="off">
+          {left === null || left > 0 ? (
+            <>
+              <span className="room-code tabular-nums">{left ?? '…'}</span>
+              <span className="text-pergament-dim">{tn('quick.seconds', left ?? 2)}</span>
+            </>
+          ) : (
+            <span className="font-display text-3xl">{t('quick.starting')}</span>
+          )}
+        </p>
+
+        <ul className="relative mt-8 grid gap-2.5 sm:grid-cols-2" aria-label={t('lobby.table')}>
+          {people.map((m, i) => (
+            <li key={m.id} className="member">
+              <span className={`avatar avatar-${i % 5}`} aria-hidden="true">
+                {m.name.slice(0, 1)}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-semibold">{m.name}</span>
+              <span className="text-xs text-pergament-mute">{m.id === you ? t('lobby.tagYou') : ''}</span>
+            </li>
+          ))}
+          {Array.from({ length: open }, (_, i) => (
+            <li key={`open-${i}`} className="member is-bot">
+              <span className="avatar avatar-bot" aria-hidden="true" />
+              <span className="min-w-0 flex-1 leading-tight">
+                <span className="block font-semibold text-pergament-dim">{t('quick.openSeat')}</span>
+                <span className="block text-xs text-pergament-mute">{t('quick.openSeatNote')}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="relative mt-8 text-sm">
+          <button type="button" className="link" onClick={onLeave}>
+            {t('quick.leave')}
+          </button>
+        </p>
+      </div>
+    </Screen>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* Create a room                                                       */
@@ -81,7 +218,12 @@ export function OnlineGame({ code }: { code: string }) {
     [snap.room],
   );
 
-  if (snap.fatal) return <RoomProblem code={snap.fatal.code} />;
+  const cameForQuickMatch = new URLSearchParams(location.search).has('quick');
+  if (snap.fatal) {
+    // Lost the race for a quick-match seat: find another table instead of showing an error.
+    if (cameForQuickMatch && ['GAME_IN_PROGRESS', 'ROOM_FULL', 'ROOM_NOT_FOUND'].includes(snap.fatal.code)) return <FindAnotherTable />;
+    return <RoomProblem code={snap.fatal.code} />;
+  }
   if (!snap.joined) {
     if (snap.status === 'idle') return <JoinRoom code={code} onJoin={(name) => client.join(name)} />;
     return <Waiting text={t('room.joining', { code })} />;
@@ -94,11 +236,20 @@ export function OnlineGame({ code }: { code: string }) {
   };
   const hostMember = snap.room.members.find((m) => m.isHost);
   const iAmHost = hostMember?.id === snap.you;
+  const quick = snap.room.mode === 'quick';
+  const findAnother = () => {
+    client.leave();
+    location.replace(`${PLAY_PATH}?quick=1&go=1`);
+  };
 
   return (
     <>
       {snap.room.status === 'lobby' ? (
-        <Lobby room={snap.room} you={snap.you!} onStart={(bots) => client.send({ t: 'start', bots })} onLeave={leave} />
+        quick ? (
+          <QuickLobby room={snap.room} you={snap.you!} roomAt={snap.roomAt} onLeave={leave} />
+        ) : (
+          <Lobby room={snap.room} you={snap.you!} onStart={(bots) => client.send({ t: 'start', bots })} onLeave={leave} />
+        )
       ) : (
         <Table
           key={round}
@@ -107,9 +258,11 @@ export function OnlineGame({ code }: { code: string }) {
           onLeave={leave}
           leaveNote={t('leave.onlineNote')}
           result={
-            iAmHost
-              ? { primary: { label: t('result.again'), onClick: () => client.send({ t: 'again' }) } }
-              : { note: t('room.waitAgain', { name: hostMember?.name ?? t('room.theHost') }) }
+            quick
+              ? { primary: { label: t('quick.another'), onClick: findAnother } }
+              : iAmHost
+                ? { primary: { label: t('result.again'), onClick: () => client.send({ t: 'again' }) } }
+                : { note: t('room.waitAgain', { name: hostMember?.name ?? t('room.theHost') }) }
           }
         />
       )}

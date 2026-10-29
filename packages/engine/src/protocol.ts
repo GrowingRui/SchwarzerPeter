@@ -43,8 +43,22 @@ export interface RoomMember {
   readonly connected: boolean;
 }
 
+/**
+ * private: someone created it and shares the link; the host starts the game.
+ * quick: a quick-match table; it starts by itself when full or when the wait is over.
+ */
+export type RoomMode = 'private' | 'quick';
+
+/** Quick-match tables seat this many players, people first and bots for the rest. */
+export const QUICK_SEATS = 4;
+/** How long a quick-match table waits for people before bots take the empty seats. */
+export const QUICK_WAIT_MS = 15_000;
+
 export interface RoomInfo {
   readonly code: string;
+  readonly mode: RoomMode;
+  /** Quick-match tables in the lobby: milliseconds until the game starts, measured when sent. */
+  readonly startsInMs: number | null;
   readonly status: RoomStatus;
   /** Goes up by one for every game started in this room. */
   readonly round: number;

@@ -8,11 +8,12 @@
  * players are thinking. The room state is stored after every change.
  */
 import { DurableObject } from 'cloudflare:workers';
-import { ROOM_CODE, ROOM_CODE_ALPHABET, parseClientMessage, type ServerMessage } from '@sp/engine/protocol';
+import { QUICK_SEATS, ROOM_CODE, ROOM_CODE_ALPHABET, parseClientMessage, type RoomMode, type ServerMessage } from '@sp/engine/protocol';
 import { RoomError, disconnect, handle, join, newRoom, nextAlarm, tick, type Outgoing, type RoomResult, type RoomState } from './room';
 
 export interface Env {
   ROOMS: DurableObjectNamespace<Room>;
+  MATCHMAKER: DurableObjectNamespace<Matchmaker>;
   /** Comma-separated origins allowed to create rooms, e.g. https://schwarzerpeter.vercel.app */
   ALLOWED_ORIGINS?: string;
 }
@@ -30,9 +31,9 @@ export class Room extends DurableObject<Env> {
   private lastReaction = new Map<string, number>();
 
   /** Called once by the worker when the room is created. Fails if the code is taken. */
-  async init(code: string): Promise<boolean> {
+  async init(code: string, mode: RoomMode = 'private'): Promise<boolean> {
     if (await this.load()) return false;
-    await this.save(newRoom(code, Date.now()));
+    await this.save(newRoom(code, Date.now(), mode));
     return true;
   }
 
@@ -159,6 +160,41 @@ function send(ws: WebSocket, msg: ServerMessage) {
   }
 }
 
+/** Make a room with a fresh code. Returns null if no free code was found. */
+async function createRoom(env: Env, mode: RoomMode): Promise<string | null> {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const code = Array.from({ length: 5 }, () => ROOM_CODE_ALPHABET[Math.floor(random() * ROOM_CODE_ALPHABET.length)]).join('');
+    if (await env.ROOMS.get(env.ROOMS.idFromName(code)).init(code, mode)) return code;
+  }
+  return null;
+}
+
+/* -------------------------------------------------------------------- */
+/* Quick match                                                           */
+/* -------------------------------------------------------------------- */
+
+/** A table keeps taking people for this long, a little less than its 15-second wait. */
+const QUICK_FILL_WINDOW_MS = 12_000;
+
+/**
+ * One instance for the whole game. It knows which quick-match table is filling
+ * up and how many seats it has handed out. It stores no names or players.
+ */
+export class Matchmaker extends DurableObject<Env> {
+  async seat(): Promise<string | null> {
+    const now = Date.now();
+    let open = await this.ctx.storage.get<{ code: string; openedAt: number; seated: number }>('open');
+    if (!open || open.seated >= QUICK_SEATS || now - open.openedAt > QUICK_FILL_WINDOW_MS) {
+      const code = await createRoom(this.env, 'quick');
+      if (!code) return null;
+      open = { code, openedAt: now, seated: 0 };
+    }
+    open = { ...open, seated: open.seated + 1 };
+    await this.ctx.storage.put('open', open);
+    return open.code;
+  }
+}
+
 /* -------------------------------------------------------------------- */
 /* Worker entry                                                          */
 /* -------------------------------------------------------------------- */
@@ -172,12 +208,19 @@ export default {
 
     if (url.pathname === '/api/rooms' && request.method === 'POST') {
       if (!cors['Access-Control-Allow-Origin']) return new Response('Origin not allowed', { status: 403 });
-      for (let attempt = 0; attempt < 8; attempt++) {
-        const code = Array.from({ length: 5 }, () => ROOM_CODE_ALPHABET[Math.floor(random() * ROOM_CODE_ALPHABET.length)]).join('');
-        const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
-        if (await stub.init(code)) return Response.json({ code }, { status: 201, headers: cors });
-      }
-      return Response.json({ error: 'Could not find a free room code. Try again.' }, { status: 503, headers: cors });
+      const code = await createRoom(env, 'private');
+      return code
+        ? Response.json({ code }, { status: 201, headers: cors })
+        : Response.json({ error: 'Could not find a free room code. Try again.' }, { status: 503, headers: cors });
+    }
+
+    // Quick match: the code of the table that is filling up right now.
+    if (url.pathname === '/api/quick' && request.method === 'POST') {
+      if (!cors['Access-Control-Allow-Origin']) return new Response('Origin not allowed', { status: 403 });
+      const code = await env.MATCHMAKER.get(env.MATCHMAKER.idFromName('tables')).seat();
+      return code
+        ? Response.json({ code }, { status: 200, headers: cors })
+        : Response.json({ error: 'Could not open a table. Try again.' }, { status: 503, headers: cors });
     }
 
     const ws = url.pathname.match(/^\/api\/rooms\/([A-Z]+)\/ws$/);

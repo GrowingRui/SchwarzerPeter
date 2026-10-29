@@ -9,6 +9,8 @@ export interface RoomSnapshot {
   readonly joined: boolean;
   readonly you: PlayerId | null;
   readonly room: RoomInfo | null;
+  /** When the room info arrived, so countdowns can be counted down locally. */
+  readonly roomAt: number;
   /** A problem that ends the visit (room missing, full, already playing). */
   readonly fatal: { code: ErrorCode; message: string } | null;
   /** A problem with the last action, shown briefly. */
@@ -19,6 +21,14 @@ const FATAL: readonly ErrorCode[] = ['ROOM_NOT_FOUND', 'ROOM_FULL', 'GAME_IN_PRO
 const tokenKey = (code: string) => `sp.room.${code}`;
 
 /** Create a room on the game server and return its code. */
+/** Ask the game server for a seat at the quick-match table that is filling up. Returns its code. */
+export async function findQuickTable(): Promise<string> {
+  const res = await fetch(`${SERVER_URL}/api/quick`, { method: 'POST' });
+  if (!res.ok) throw new Error(`The game server answered ${res.status}.`);
+  const { code } = (await res.json()) as { code: string };
+  return code;
+}
+
 export async function createRoom(): Promise<string> {
   const res = await fetch(`${SERVER_URL}/api/rooms`, { method: 'POST' });
   if (!res.ok) throw new Error(`The game server answered ${res.status}.`);
@@ -32,7 +42,7 @@ export async function createRoom(): Promise<string> {
  */
 export class RoomClient {
   private ws: WebSocket | null = null;
-  private snap: RoomSnapshot = { status: 'idle', joined: false, you: null, room: null, fatal: null, notice: null };
+  private snap: RoomSnapshot = { status: 'idle', joined: false, you: null, room: null, roomAt: 0, fatal: null, notice: null };
   private listeners = new Set<() => void>();
   private stepListeners = new Set<(step: Step) => void>();
   private buffer: Step[] = [];
@@ -133,7 +143,7 @@ export class RoomClient {
         break;
       case 'room':
         if (m.room.status === 'lobby') this.buffer = [];
-        this.update({ room: m.room });
+        this.update({ room: m.room, roomAt: Date.now() });
         break;
       case 'step':
         if (this.stepListeners.size) this.stepListeners.forEach((l) => l(m.step));

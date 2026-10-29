@@ -35,12 +35,19 @@ To try an online game locally, run both dev commands, create a room at http://lo
 | `/play` | Practice against 1 to 5 bots, all in the browser (`src/play/host.ts`) |
 | `/play?create=1` | Create an online room |
 | `/play?room=KATZE` | Join room KATZE: name, lobby, then the game (`src/play/Online.tsx`) |
+| `/play?quick=1` | Quick match: name, then a seat at the table that is filling up (`&go=1` skips the name screen) |
 
 Either way, `src/play/Table.tsx` gets its game as a stream of steps (`deal`, `action`, `hover`, `sync`) from a `GameHost`. Live steps (`peek`, `rearranged`, `reaction`) skip the animation queue and show at once. It plays them one at a time with card animations, and it only ever receives what this player may see. The practice host waits for the table's `ready()` before a bot moves. The online host (`src/play/room-client.ts`) gets steps from the server, which sets the pace itself.
 
 ## Bluffing
 
 You can rearrange your hand at any time (drag, arrow keys or Shuffle); the browser sends the new order (`arrange`) and the others only learn *that* you rearranged. While you choose a card, the browser sends the slot you point at (`peek`), and the server passes it only to the player holding those cards. Emotes (`react`) are a fixed list (`EMOTES` in the protocol), limited to one per second per player. Peeks and emotes never change the stored room, so they cost no storage writes. In practice games, bots sometimes shuffle before you draw and react to big moments.
+
+## Quick match
+
+`POST /api/quick` asks the `Matchmaker` Durable Object (one instance for the whole game) for a seat. It hands out the same table code to up to 4 people within 12 seconds, then opens a new table. It stores only the current table code and a seat count, no names. A quick table is a room with `mode: 'quick'`: it has no host, the first person to sit down starts a 15-second countdown (`QUICK_WAIT_MS`), and the game starts when 4 people are there (`QUICK_SEATS`) or when the countdown ends, with bots in the empty seats. Leaving or losing the connection while waiting frees the seat. Someone who arrives just after a table started is sent to a new table automatically. After the game, "Find another table" starts a new quick match.
+
+There are no accounts: names live only in the room and are deleted with it.
 
 ## Languages
 
