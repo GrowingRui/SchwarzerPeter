@@ -296,7 +296,7 @@ const de: Record<string, string> = {
   'footer.parents': 'Für Eltern',
   'footer.privacy': 'Datenschutz',
   'footer.contact': 'Kontakt',
-  'footer.copyright': '© 2026 Schwarzer Peter. Gemacht in Sassland.',
+  'footer.copyright': '© 2026 Schwarzer Peter. Gemacht in Sassland für Saskja.',
 
   // Homepage
   'hero.title': 'Wer die Katze behält, verliert.',
