@@ -16,6 +16,7 @@ import type { PlayerView } from './view';
  * - peek: the player drawing from you is pointing at one of your cards (null: at none)
  * - rearranged: a player moved their cards around (only that it happened, never the order)
  * - reaction: a player sent an emote
+ * - timer: how long a person has left to draw in this turn (turn = the game's turn number)
  */
 export type Step =
   | { readonly kind: 'deal'; readonly events: readonly GameEvent[]; readonly view: PlayerView }
@@ -24,10 +25,11 @@ export type Step =
   | { readonly kind: 'sync'; readonly view: PlayerView }
   | { readonly kind: 'peek'; readonly playerId: PlayerId; readonly slot: number | null }
   | { readonly kind: 'rearranged'; readonly playerId: PlayerId }
-  | { readonly kind: 'reaction'; readonly playerId: PlayerId; readonly emote: Emote };
+  | { readonly kind: 'reaction'; readonly playerId: PlayerId; readonly emote: Emote }
+  | { readonly kind: 'timer'; readonly playerId: PlayerId; readonly turn: number; readonly endsInMs: number };
 
-export type LiveStep = Extract<Step, { kind: 'peek' | 'rearranged' | 'reaction' }>;
-export const isLiveStep = (s: Step): s is LiveStep => s.kind === 'peek' || s.kind === 'rearranged' || s.kind === 'reaction';
+export type LiveStep = Extract<Step, { kind: 'peek' | 'rearranged' | 'reaction' | 'timer' }>;
+export const isLiveStep = (s: Step): s is LiveStep => s.kind === 'peek' || s.kind === 'rearranged' || s.kind === 'reaction' || s.kind === 'timer';
 
 /** The fixed set of reactions. No free text, so the table stays friendly. */
 export const EMOTES = ['grin', 'gasp', 'laugh', 'sweat', 'shrug', 'clap'] as const;
@@ -64,6 +66,8 @@ export interface RoomInfo {
   readonly round: number;
   readonly members: readonly RoomMember[];
   readonly maxPlayers: number;
+  /** Kept the cat last round: by tradition they carry a smudge of soot into the next one. */
+  readonly sooty: PlayerId | null;
 }
 
 export type ClientMessage =

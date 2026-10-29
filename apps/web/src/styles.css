@@ -400,6 +400,26 @@
     100% { transform: none; }
   }
 
+  /* Turn timer: a thin bar that runs out with the turn. */
+  .turn-timer { position: absolute; left: .85rem; right: .85rem; bottom: .3rem; height: 3px; overflow: hidden; border-radius: 999px; background: rgba(244, 228, 193, .12); }
+  .turn-timer > span { display: block; height: 100%; background: #C6A15B; transform-origin: left; transform: scaleX(var(--from, 1)); animation: timer-run var(--ms, 0ms) linear forwards; }
+  .turn-timer.is-low > span { background: #E8622C; }
+  .turn-timer.timer-you { position: relative; left: auto; right: auto; bottom: auto; display: block; width: min(420px, 70%); margin: 0 auto .35rem; }
+  @keyframes timer-run { from { transform: scaleX(var(--from, 1)); } to { transform: scaleX(0); } }
+
+  /* Soot on the nose: kept the cat last round. */
+  .avatar { position: relative; }
+  .avatar.is-sooty::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background:
+      radial-gradient(circle at 60% 64%, rgba(18, 21, 27, .92) 0 20%, rgba(18, 21, 27, .5) 30%, transparent 46%),
+      radial-gradient(circle at 33% 72%, rgba(18, 21, 27, .6) 0 7%, transparent 13%),
+      radial-gradient(circle at 72% 34%, rgba(18, 21, 27, .45) 0 6%, transparent 11%);
+    animation: soot-in .9s ease both;
+  }
+  @keyframes soot-in { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+  .you-chip { display: inline-grid; width: 22px; height: 22px; margin-right: .45rem; font-size: .75rem; vertical-align: -6px; }
+
   /* You drew the Schwarzer Peter. */
   .peter-flash {
     position: fixed; inset: 0; z-index: 75; pointer-events: none;
@@ -409,6 +429,7 @@
   @keyframes peter-flash { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
 
   @media (prefers-reduced-motion: reduce) {
+    .turn-timer > span { animation: none; }
     .reaction-bubble { animation: none; }
     .peter-flash { display: none; }
   }

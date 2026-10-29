@@ -255,6 +255,7 @@ export function OnlineGame({ code }: { code: string }) {
           key={round}
           host={host}
           offline={offline}
+          sooty={snap.room.sooty}
           onLeave={leave}
           leaveNote={t('leave.onlineNote')}
           result={

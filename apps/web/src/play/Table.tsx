@@ -51,13 +51,25 @@ export interface TableProps {
   leaveNote?: string;
   /** Players whose connection dropped (online games). */
   offline?: ReadonlySet<PlayerId>;
+  /** Kept the cat last round: they start this one with soot on their nose. */
+  sooty?: PlayerId | null;
+  /** Called once when the game ends, with the final view. */
+  onGameOver?: (view: PlayerView) => void;
+}
+
+/** A timed turn: whose it is, for which game turn, and when it runs out (local clock). */
+interface TurnTimer {
+  readonly playerId: PlayerId;
+  readonly turn: number;
+  readonly endsAt: number;
+  readonly totalMs: number;
 }
 
 const goHome = () => {
   location.href = '/';
 };
 
-export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.practiceNote'), offline }: TableProps) {
+export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.practiceNote'), offline, sooty = null, onGameOver }: TableProps) {
   const you = host.you;
   const [view, setView] = useState<PlayerView | null>(null);
   const [extra, setExtra] = useState<readonly Card[]>([]); // pairs you were dealt, shown before they go down
@@ -77,6 +89,12 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
   const [flash, setFlash] = useState(0);
   const [announcement, setAnnouncement] = useState('');
   const bubbleKey = useRef(0);
+  const [timer, setTimer] = useState<TurnTimer | null>(null);
+  const [now, setNow] = useState(Date.now);
+  const gameOverRef = useRef(onGameOver);
+  gameOverRef.current = onGameOver;
+  const sootyRef = useRef(sooty);
+  sootyRef.current = sooty;
 
   const showBubble = useCallback((playerId: PlayerId, emote: Emote) => {
     const key = ++bubbleKey.current;
@@ -111,7 +129,10 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
               : { text: t('table.playerLost', { name: nameOf(e.loser) }), tone: 'good' },
           );
           await wait(1300);
-          if (alive) setShowResult(true);
+          if (alive) {
+            setShowResult(true);
+            if (viewRef.current) gameOverRef.current?.(viewRef.current);
+          }
         } else if (e.type === 'nextTurn') {
           setPhase('playing');
           setMessage(
@@ -131,6 +152,13 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
         setMessage({ text: t('table.dealing') });
       });
       await wait(1500);
+
+      // By tradition, last round's loser starts with soot on the nose.
+      const sootyNow = sootyRef.current;
+      if (sootyNow && step.view.seats.some((s) => s.id === sootyNow)) {
+        setMessage(sootyNow === you ? { text: t('soot.you'), tone: 'peter' } : { text: t('soot.start', { name: nameOf(sootyNow) }) });
+        await wait(1600);
+      }
 
       if (mine.length) {
         setMessage({ text: tn('table.dealtPairs', mine.length), tone: 'good' });
@@ -287,6 +315,8 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
       } else if (step.kind === 'rearranged') {
         setShuffles((s) => ({ ...s, [step.playerId]: (s[step.playerId] ?? 0) + 1 }));
         setAnnouncement(t('bluff.rearranged', { name: nameOf(step.playerId) }));
+      } else if (step.kind === 'timer') {
+        setTimer({ playerId: step.playerId, turn: step.turn, endsAt: Date.now() + step.endsInMs, totalMs: step.endsInMs });
       } else {
         showBubble(step.playerId, step.emote);
         setAnnouncement(t('react.announce', { name: nameOf(step.playerId), label: t(`react.${step.emote}`) }));
@@ -320,6 +350,13 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
     [host],
   );
 
+  // Tick twice a second while a turn is timed, for the seconds shown.
+  useEffect(() => {
+    if (!timer) return;
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [timer]);
+
   const [cooldown, setCooldown] = useState(false);
   const react = (emote: Emote) => {
     if (cooldown) return;
@@ -338,6 +375,10 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
   const yourTurn = phase === 'playing' && view.drawer === you && !busy;
   const visiblePairs = view.pairs.slice(0, Math.max(0, view.pairs.length - hiddenPairs));
   const placeOf = (id: PlayerId) => view.finishOrder.indexOf(id) + 1;
+
+  const activeTimer = timer && phase === 'playing' && view.turn === timer.turn && view.drawer === timer.playerId ? timer : null;
+  const secondsLeft = activeTimer ? Math.max(0, Math.ceil((activeTimer.endsAt - now) / 1000)) : null;
+  const myTimer = activeTimer?.playerId === you ? activeTimer : null;
 
   const hand = inPreferredOrder(view.hand, order);
   const canArrange = phase === 'playing' && !me.isOut && hand.length > 1 && extra.length === 0;
@@ -386,6 +427,9 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
                   offline={!!offline?.has(s.id)}
                   bubble={bubbles[s.id]}
                   shuffles={shuffles[s.id] ?? 0}
+                  sooty={sooty === s.id}
+                  timer={activeTimer?.playerId === s.id ? activeTimer : null}
+                  secondsLeft={activeTimer?.playerId === s.id ? secondsLeft : null}
                 />
               );
             })}
@@ -423,6 +467,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
         </section>
 
         <section className="your-side" aria-label={t('table.yourHand')}>
+          {myTimer && <TimerBar key={myTimer.endsAt} timer={myTimer} low={(secondsLeft ?? 99) <= 10} className="timer-you" />}
           <div className="relative">
             <Hand
               cards={[...hand, ...extra]}
@@ -446,8 +491,16 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
                 </button>
               )}
             </div>
-            <p className="your-bar-status text-center text-sm text-pergament-mute">
-              {me.isOut
+            <p className={`your-bar-status text-center text-sm ${myTimer && (secondsLeft ?? 99) <= 15 ? 'text-glut' : 'text-pergament-mute'}`}>
+              {sooty === you && (
+                <span className="avatar avatar-0 is-sooty you-chip" title={t('soot.you')}>
+                  {me.name.slice(0, 1)}
+                  <span className="sr-only">{t('soot.you')}</span>
+                </span>
+              )}
+              {myTimer && (secondsLeft ?? 99) <= 15
+                ? tn('timer.you', secondsLeft ?? 0)
+                : me.isOut
                 ? t('status.out', { ord: ordinal(placeOf(me.id)), n: placeOf(me.id) })
                 : view.loser === me.id
                   ? t('status.keptCat')
@@ -491,9 +544,12 @@ function Seat(props: {
   offline: boolean;
   bubble: Bubble | undefined;
   shuffles: number;
+  sooty: boolean;
+  timer: TurnTimer | null;
+  secondsLeft: number | null;
   style: CSSProperties;
 }) {
-  const { id, name, index, count, role, place, loser, offline, bubble, shuffles, style } = props;
+  const { id, name, index, count, role, place, loser, offline, bubble, shuffles, sooty, timer, secondsLeft, style } = props;
   const status = loser
     ? t('seat.keptCat')
     : place
@@ -508,12 +564,15 @@ function Seat(props: {
   return (
     <li className={`seat ${role ? `is-${role}` : ''} ${place ? 'is-out' : ''} ${loser ? 'is-loser' : ''} ${offline && !place ? 'is-offline' : ''}`} style={style}>
       <div className="flex items-center gap-2.5">
-        <span className={`avatar avatar-${index % 5}`} aria-hidden="true">
+        <span className={`avatar avatar-${index % 5} ${sooty ? 'is-sooty' : ''}`} aria-hidden="true" title={sooty ? t('soot.title') : undefined}>
           {name.slice(0, 1)}
         </span>
         <p className="leading-tight">
           <span className="block font-semibold">{name}</span>
-          <span className="block text-xs text-pergament-mute">{status}</span>
+          <span className="block text-xs text-pergament-mute">
+            {timer && secondsLeft !== null ? `${status}, ${t('timer.seat', { n: secondsLeft })}` : status}
+          </span>
+          {sooty && <span className="sr-only">{t('soot.title')}</span>}
         </p>
       </div>
       {/* Remounted on every shuffle so the animation plays again. */}
@@ -522,6 +581,7 @@ function Seat(props: {
           <CardBack key={i} className="mini" style={{ '--i': i } as CSSProperties} />
         ))}
       </div>
+      {timer && <TimerBar key={timer.endsAt} timer={timer} low={(secondsLeft ?? 99) <= 10} className="timer-seat" />}
       {bubble && <ReactionBubble key={bubble.key} emote={bubble.emote} className="bubble-seat" />}
     </li>
   );
@@ -730,6 +790,16 @@ function ReactionBar({ onReact, disabled }: { onReact: (emote: Emote) => void; d
         </button>
       ))}
     </div>
+  );
+}
+
+/** A thin bar that runs out with the turn. Restarted (keyed) whenever a new timer arrives. */
+function TimerBar({ timer, low, className }: { timer: TurnTimer; low: boolean; className: string }) {
+  const left = Math.max(0, timer.endsAt - Date.now());
+  return (
+    <span className={`turn-timer ${low ? 'is-low' : ''} ${className}`} aria-hidden="true">
+      <span style={{ '--from': left / Math.max(1, timer.totalMs), '--ms': `${left}ms` } as CSSProperties} />
+    </span>
   );
 }
 

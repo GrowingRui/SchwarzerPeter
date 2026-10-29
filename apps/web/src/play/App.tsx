@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { PlayerId } from '@sp/engine';
 import { createPracticeGame, type GameHost, type PracticeSettings } from './host';
 import { Setup } from './Setup';
 import { Table } from './Table';
@@ -21,27 +22,35 @@ function loadSettings(): PracticeSettings {
 
 export function App() {
   const [settings, setSettings] = useState(loadSettings);
-  const [host, setHost] = useState<GameHost | null>(null);
+  const [host, setHost] = useState<(GameHost & { readonly botNames: readonly string[] }) | null>(null);
   const [round, setRound] = useState(0);
+  // Whoever kept the cat carries the soot into the next game with the same bots.
+  const [sooty, setSooty] = useState<PlayerId | null>(null);
 
-  const start = (next: PracticeSettings) => {
+  const start = (next: PracticeSettings, sameTable = false) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
       /* private mode: settings just aren't remembered */
     }
     setSettings(next);
-    setHost(createPracticeGame(next));
+    if (!sameTable) setSooty(null);
+    setHost(createPracticeGame(next, sameTable ? host?.botNames : undefined));
     setRound((r) => r + 1);
   };
 
-  if (!host) return <Setup initial={settings} onStart={start} />;
+  if (!host) return <Setup initial={settings} onStart={(next) => start(next)} />;
   return (
     <Table
       key={round}
       host={host}
-      result={{ primary: { label: t('result.again'), onClick: () => start(settings) }, secondary: { label: t('result.changePlayers'), onClick: () => setHost(null) } }}
-leaveNote={t('leave.practiceNote')}
+      sooty={sooty}
+      onGameOver={(view) => setSooty(view.loser)}
+      result={{
+        primary: { label: t('result.again'), onClick: () => start(settings, true) },
+        secondary: { label: t('result.changePlayers'), onClick: () => setHost(null) },
+      }}
+      leaveNote={t('leave.practiceNote')}
     />
   );
 }

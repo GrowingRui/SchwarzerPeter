@@ -46,6 +46,8 @@ export interface RoomState {
   readonly mode?: RoomMode;
   /** Quick-match tables in the lobby: when the game starts if the table isn't full first. */
   readonly startAt?: number | null;
+  /** Kept the cat last round, and carries the soot into the next one. */
+  readonly sooty?: PlayerId | null;
   readonly hostId: PlayerId | null;
   readonly members: readonly Member[];
   readonly status: 'lobby' | 'playing' | 'over';
@@ -112,6 +114,7 @@ export function roomInfo(s: RoomState, now = Date.now()): RoomInfo {
     status: s.status,
     round: s.round,
     maxPlayers: seatsFor(s),
+    sooty: s.sooty ?? null,
     members: s.members.map((m) => ({ id: m.id, name: m.name, isBot: m.bot, isHost: m.id === s.hostId, connected: m.bot || m.connected })),
   };
 }
@@ -128,7 +131,8 @@ export function join(s: RoomState, rawName: string, token: string | undefined, n
     const state = touch(updateMember(s, existing.id, { connected: true, name }), now);
     const out: Outgoing[] = [{ to: existing.id, msg: { t: 'welcome', you: existing.id, token: existing.token } }, ...broadcastRoom(state, now)];
     if (state.game) out.push({ to: existing.id, msg: { t: 'step', step: { kind: 'sync', view: viewFor(state.game, existing.id) } } });
-    return { state: reschedule(state, now, random, { force: isDrawer(state, existing.id) }), out, memberId: existing.id };
+    const next = reschedule(state, now, random, { force: isDrawer(state, existing.id) });
+    return { state: next, out: [...out, ...timerSteps(next, now)], memberId: existing.id };
   }
   if (s.status !== 'lobby') throw new RoomError('GAME_IN_PROGRESS', 'This game has already started.');
   if (s.members.length >= seatsFor(s)) throw new RoomError('ROOM_FULL', 'This room is full.');
@@ -153,7 +157,8 @@ export function disconnect(s: RoomState, memberId: PlayerId, now: number, random
   if (!s.members.some((m) => m.id === memberId)) return { state: s, out: [] };
   if (isQuick(s) && s.status === 'lobby') return leave(touch(s, now), memberId, now, random);
   const state = touch(updateMember(s, memberId, { connected: false }), now);
-  return { state: reschedule(state, now, random, { force: isDrawer(state, memberId) }), out: broadcastRoom(state, now) };
+  const next = reschedule(state, now, random, { force: isDrawer(state, memberId) });
+  return { state: next, out: [...broadcastRoom(state, now), ...(isDrawer(state, memberId) ? timerSteps(next, now) : [])] };
 }
 
 /* ------------------------------------------------------------------ */
@@ -253,7 +258,7 @@ function startGame(s: RoomState, bots: number, now: number, random: Random): Roo
   let state: RoomState = { ...s, members, game, startAt: null, status: game.phase === 'over' ? 'over' : 'playing', round: s.round + 1 };
   const out = [...broadcastRoom(state, now), ...sendSteps(state, (id) => ({ kind: 'deal', events: events.map((e) => eventFor(e, id)), view: viewFor(game, id) }))];
   state = reschedule(state, now, random, { force: true, extra: TIMING.afterDeal });
-  return { state, out };
+  return { state, out: [...out, ...timerSteps(state, now)] };
 }
 
 function playDraw(s: RoomState, memberId: PlayerId, slot: number, now: number, random: Random): RoomResult {
@@ -332,11 +337,11 @@ function applyDraw(s: RoomState, drawerId: PlayerId, slot: number, now: number, 
   }
 
   const next = result.state;
-  let state: RoomState = { ...s, game: next, status: next.phase === 'over' ? 'over' : 'playing' };
+  let state: RoomState = { ...s, game: next, status: next.phase === 'over' ? 'over' : 'playing', sooty: next.phase === 'over' ? next.loser : (s.sooty ?? null) };
   out.push(...sendSteps(state, (id) => ({ kind: 'action', events: result.events.map((e) => eventFor(e, id)), view: viewFor(next, id) })));
   if (state.status === 'over') out.push(...broadcastRoom(state, now));
   state = reschedule(state, now, random, { force: true });
-  return { state, out };
+  return { state, out: [...out, ...timerSteps(state, now)] };
 }
 
 /**
@@ -359,6 +364,16 @@ function reschedule(s: RoomState, now: number, random: Random, opts: { force?: b
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
+
+/** Everyone learns how long a person has left to draw. Bots get no timer. */
+function timerSteps(s: RoomState, now: number): Outgoing[] {
+  if (s.status !== 'playing' || !s.game || s.deadline === null || s.deadlineTurn !== s.game.turn) return [];
+  const turn = currentTurn(s.game);
+  const drawer = turn && s.members.find((m) => m.id === turn.drawer);
+  if (!turn || !drawer || drawer.bot) return [];
+  const step: Step = { kind: 'timer', playerId: drawer.id, turn: s.game.turn, endsInMs: Math.max(0, s.deadline - now) };
+  return sendSteps(s, () => step);
+}
 
 function sendSteps(s: RoomState, stepFor: (id: PlayerId) => Step): Outgoing[] {
   return s.members.filter((m) => !m.bot).map((m) => ({ to: m.id, msg: { t: 'step', step: stepFor(m.id) } }));

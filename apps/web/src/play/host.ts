@@ -45,10 +45,11 @@ export interface PracticeSettings {
 }
 
 /** A practice game against bots, run entirely in the browser. */
-export function createPracticeGame(settings: PracticeSettings): GameHost {
+/** A practice game. Pass the bot names of the last game to sit down with the same bots again. */
+export function createPracticeGame(settings: PracticeSettings, sameBots?: readonly string[]): GameHost & { readonly botNames: readonly string[] } {
   const seed = Math.floor(Math.random() * 2 ** 31);
   const rng = new Rng(seed ^ 0x5bd1e995);
-  const names = rng.shuffle([...BOT_NAMES]).slice(0, settings.bots);
+  const names = sameBots?.length === settings.bots ? [...sameBots] : rng.shuffle([...BOT_NAMES]).slice(0, settings.bots);
   const players = [
     { id: YOU, name: settings.name.trim() || t('you') },
     ...names.map((name, i) => ({ id: `bot${i + 1}`, name })),
@@ -111,6 +112,7 @@ export function createPracticeGame(settings: PracticeSettings): GameHost {
 
   return {
     you: YOU,
+    botNames: names,
     subscribe(listener) {
       listeners.push(listener);
       const queued = pending;

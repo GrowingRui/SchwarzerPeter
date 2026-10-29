@@ -49,6 +49,12 @@ You can rearrange your hand at any time (drag, arrow keys or Shuffle); the brows
 
 There are no accounts: names live only in the room and are deleted with it.
 
+## Turn timer and soot
+
+Whenever a person has to draw online, the server sends a live `timer` step (`playerId`, game `turn`, `endsInMs`) to everyone at the table: 45 seconds normally, 12 seconds if the drawer has lost connection. The table shows it once its view has caught up to that turn: a bar under the drawer's seat, and for yourself a bar above your hand plus a warning in the last 15 seconds. Practice games have no timer.
+
+The room remembers who kept the cat (`sooty` in the room info). In the next round in that room, that player's avatar carries a soot smudge and the round opens with a short announcement. Practice games do the same when you choose Play again with the same bots.
+
 ## Languages
 
 The site is in English and German. All text lives in `apps/web/src/i18n.ts`. Static pages are written in English, and each translated element carries `data-i18n="key"` (or `data-i18n-attr="attr:key"` for attributes); German visitors see the German text before the page appears. The game calls `t(key)` and `tn(key, n)` for plurals. The language comes from `?lang=`, then the saved choice (`sp.lang`), then the browser language. The EN/DE switch saves the choice and reloads. To add text, add the English and German entries in `i18n.ts`; to add a language, add its dictionary there and to `LANGS`.

@@ -311,6 +311,62 @@ describe('quick-match tables', () => {
   });
 });
 
+describe('turn timer', () => {
+  const timers = (out: readonly Outgoing[], id: string) => steps(out, id).filter((s) => s.kind === 'timer');
+
+  it('tells everyone how long a person has left to draw', () => {
+    const l = lobby(['Rui', 'Lena']);
+    const started = handle(l.state, l.ids[0]!, { t: 'start', bots: 0 }, 1000, l.random);
+    const drawer = currentTurn(started.state.game!)!.drawer;
+    for (const id of l.ids) {
+      expect(timers(started.out, id)).toEqual([{ kind: 'timer', playerId: drawer, turn: 0, endsInMs: TIMING.turnTimeout + TIMING.afterDeal }]);
+    }
+    const drew = handle(started.state, drawer, { t: 'draw', slot: 0 }, 2000, l.random);
+    if (drew.state.status === 'playing') {
+      expect(timers(drew.out, l.ids[0]!)).toEqual([{ kind: 'timer', playerId: currentTurn(drew.state.game!)!.drawer, turn: 1, endsInMs: TIMING.turnTimeout }]);
+    }
+  });
+
+  it('sends no timer for a bot’s turn', () => {
+    for (let seed = 1; seed < 30; seed++) {
+      const random = seeded(seed);
+      const l = lobby(['Rui'], random);
+      const started = handle(l.state, l.ids[0]!, { t: 'start', bots: 1 }, 0, random);
+      const drawer = currentTurn(started.state.game!)?.drawer;
+      if (drawer?.startsWith('bot')) {
+        expect(timers(started.out, l.ids[0]!)).toEqual([]);
+        return;
+      }
+    }
+    throw new Error('no game started with a bot to draw');
+  });
+
+  it('shortens the timer when the drawer loses connection', () => {
+    const l = lobby(['Rui', 'Lena']);
+    const state = handle(l.state, l.ids[0]!, { t: 'start', bots: 0 }, 0, l.random).state;
+    const drawer = currentTurn(state.game!)!.drawer;
+    const other = l.ids.find((id) => id !== drawer)!;
+    const gone = disconnect(state, drawer, 500, l.random);
+    expect(timers(gone.out, other)).toEqual([{ kind: 'timer', playerId: drawer, turn: 0, endsInMs: TIMING.absentGrace }]);
+  });
+});
+
+describe('soot', () => {
+  it('marks whoever kept the cat, into the next round', () => {
+    const random = seeded(8);
+    let { state, ids } = lobby(['Rui', 'Lena'], random);
+    state = handle(state, ids[0]!, { t: 'start', bots: 0 }, 0, random).state;
+    expect(roomInfo(state).sooty).toBeNull();
+    while (state.status === 'playing') state = tick(state, nextAlarm(state)!, random).state;
+    const loser = state.game!.loser;
+    expect(roomInfo(state).sooty).toBe(loser);
+    state = handle(state, ids[0]!, { t: 'again' }, 1, random).state;
+    expect(roomInfo(state).sooty).toBe(loser);
+    state = handle(state, ids[0]!, { t: 'start', bots: 0 }, 2, random).state;
+    expect(roomInfo(state).sooty).toBe(loser);
+  });
+});
+
 describe('after the game', () => {
   it('the host takes everyone back to the lobby, without the bots', () => {
     const random = seeded(3);

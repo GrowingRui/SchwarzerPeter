@@ -49,12 +49,12 @@ Visit **[schwarzerpeter.vercel.app](https://schwarzerpeter.vercel.app)**. It's f
 - **[Practise against 1 to 5 bots](https://schwarzerpeter.vercel.app/play).** The bots pick their cards at random, so just like at a real table, it all comes down to luck.
 - **Bluff.** Drag or shuffle your cards while someone is choosing, watch which card they point at, and react with a grin or a gasp.
 - **English or German.** Switch any time with EN / DE at the top of the page.
-- **Safe for kids.** No open chat and as little personal data as possible.
+- **The old tradition.** Whoever keeps the cat starts the next round with a smudge of soot on the nose.
+- **Safe for kids.** No open chat and as little personal data as possible. See the [privacy page](https://schwarzerpeter.vercel.app/privacy).
 
 ## What's coming
 
 - **Sound.** Card sounds you can switch off.
-- **A visible turn timer,** so you always know how long you have to draw.
 
 No accounts, no sign-up: you just type a name and play.
 
