@@ -1,3 +1,9 @@
+/* Fonts are served from this site, so visitors never connect to Google. */
+@import "@fontsource/gloock/latin-400.css";
+@import "@fontsource/figtree/latin-400.css";
+@import "@fontsource/figtree/latin-500.css";
+@import "@fontsource/figtree/latin-600.css";
+@import "@fontsource/figtree/latin-700.css";
 @import "tailwindcss";
 
 @theme {
@@ -86,6 +92,15 @@
   .link:hover::after, .link:focus-visible::after { transform: scaleX(1); }
   .link:active { opacity: .7; }
 
+  /* Long-form text (privacy page) */
+  .prose-sp { max-width: 65ch; }
+  .prose-sp section + section { margin-top: 3rem; padding-top: 2.5rem; box-shadow: inset 0 1px 0 rgba(198, 161, 91, .18); }
+  .prose-sp h2 { font-family: var(--font-display); font-size: clamp(1.6rem, 3.4vw, 2rem); line-height: 1.15; letter-spacing: -0.02em; color: #F4E4C1; }
+  .prose-sp p, .prose-sp ul { margin-top: .9rem; color: #CFC2A5; }
+  .prose-sp ul { padding-left: 1.25rem; list-style: disc; }
+  .prose-sp li + li { margin-top: .45rem; }
+  .prose-sp li::marker { color: #C6A15B; }
+
   /* EN / DE switch */
   .lang-switch { display: inline-flex; flex: none; border-radius: 999px; padding: 3px; box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .4); }
   .lang-switch button {
@@ -161,6 +176,9 @@
   .img-treat img { display: block; width: 100%; height: 100%; object-fit: cover; }
   .img-treat::before { content: ''; position: absolute; inset: 0; background: #C6A15B; mix-blend-mode: multiply; opacity: .35; z-index: 1; }
   .img-treat::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0, 0, 0, .6), transparent 60%); z-index: 1; }
+  /* Screenshots of the game need to stay readable: a much lighter treatment. */
+  .img-treat-soft::before { opacity: .08; }
+  .img-treat-soft::after { background: linear-gradient(to top, rgba(0, 0, 0, .3), transparent 35%); }
 
   /* Card thumbnails on the home page and the deck page */
   .deck-card, .playing-card {

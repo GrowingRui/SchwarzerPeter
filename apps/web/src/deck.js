@@ -6,5 +6,5 @@ applyStatic();
 
 const grid = document.getElementById('grid');
 grid.innerHTML = DECK.map((c, i) =>
-  `<a href="#" class="playing-card" style="--tilt:${i % 2 ? 1.5 : -1.5}deg" data-card="${c.key}" aria-label="${t('card.aria', { name: c.name })}"></a>`).join('');
+  `<div role="img" class="playing-card" style="--tilt:${i % 2 ? 1.5 : -1.5}deg" data-card="${c.key}" aria-label="${t('card.aria', { name: c.name })}"></div>`).join('');
 mountAll();

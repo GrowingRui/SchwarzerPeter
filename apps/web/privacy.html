@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="meta.privacyTitle">Privacy and contact: Schwarzer Peter</title>
+<meta name="description" data-i18n-attr="content:meta.privacyDescription" content="What Schwarzer Peter stores about you (very little), information for parents, and how to get in touch.">
+<script>
+  try {
+    var l = new URLSearchParams(location.search).get('lang') || localStorage.getItem('sp.lang') || ((navigator.language || '').toLowerCase().indexOf('de') === 0 ? 'de' : 'en');
+    if (l === 'de') {
+      document.documentElement.lang = 'de';
+      document.documentElement.classList.add('i18n-pending');
+      setTimeout(function () { document.documentElement.classList.remove('i18n-pending'); }, 1500);
+    }
+  } catch (e) {}
+</script>
+<style>.i18n-pending body { visibility: hidden; }</style>
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#1E2430">
+<meta name="robots" content="noindex">
+<script type="module" src="/src/privacy.js"></script>
+</head>
+<body class="font-sans antialiased min-h-screen">
+<div class="grain" aria-hidden="true"></div>
+
+<header class="relative z-40">
+  <nav class="mx-auto max-w-6xl px-5 sm:px-8 h-28 flex items-center justify-between gap-6" aria-label="Main" data-i18n-attr="aria-label:nav.main">
+    <a href="index.html" class="logo-mark ring-focus [--logo:72px] sm:[--logo:88px] transition-transform duration-300 hover:-translate-y-0.5 active:scale-95" aria-label="Schwarzer Peter home" data-i18n-attr="aria-label:home.aria">
+      <img src="/brand_assets/logo-web.jpg" alt="Schwarzer Peter">
+    </a>
+    <ul class="hidden md:flex items-center gap-9 text-[15px]">
+      <li><a class="link" href="index.html#play" data-i18n="nav.play">Play</a></li>
+      <li><a class="link" href="index.html#rules" data-i18n="nav.rules">How to play</a></li>
+      <li><a class="link" href="deck.html" data-i18n="nav.deck">The deck</a></li>
+      <li><a class="link" href="index.html#online" data-i18n="nav.online">Playing online</a></li>
+    </ul>
+    <div class="flex items-center gap-3 sm:gap-4">
+      <div class="lang-switch" role="group" aria-label="Language" data-i18n-attr="aria-label:lang.label">
+        <button type="button" data-set-lang="en" aria-pressed="true" lang="en" title="English">EN</button>
+        <button type="button" data-set-lang="de" aria-pressed="false" lang="de" title="Deutsch">DE</button>
+      </div>
+      <a href="/play.html?quick=1" class="btn btn-glut text-[15px] py-2.5! px-5!" data-i18n="cta.playNow">Play now</a>
+    </div>
+  </nav>
+</header>
+
+<main class="mx-auto max-w-3xl px-5 sm:px-8 pt-8 md:pt-14 pb-[var(--s-section)]">
+  <h1 class="h-display text-[clamp(2.6rem,6vw,4.2rem)]" data-i18n="privacy.title">Privacy and contact</h1>
+  <p class="mt-6 text-lg text-pergament-dim" data-i18n="privacy.lead">Schwarzer Peter is a private hobby project. It has no accounts, no ads and no tracking, and it keeps as little about you as it can.</p>
+  <p class="mt-3 text-sm text-pergament-mute" data-i18n="privacy.updated">Last updated on 29 October 2026.</p>
+
+  <div class="prose-sp mt-14">
+    <section aria-labelledby="browser">
+      <h2 id="browser" data-i18n="privacy.browser.title">What stays in your browser</h2>
+      <p data-i18n="privacy.browser.text">The site saves a few things in your browser’s local storage, so you don’t have to enter them again:</p>
+      <ul>
+        <li data-i18n="privacy.browser.lang">the language you chose,</li>
+        <li data-i18n="privacy.browser.name">the name you last played under, and your practice settings,</li>
+        <li data-i18n="privacy.browser.seat">for each online room you join, a random code that gets you back to your seat after a reload.</li>
+      </ul>
+      <p data-i18n="privacy.browser.clear">There are no cookies. You can remove all of this at any time by clearing this site’s data in your browser.</p>
+    </section>
+
+    <section aria-labelledby="server">
+      <h2 id="server" data-i18n="privacy.server.title">What the game server keeps</h2>
+      <p data-i18n="privacy.server.text">When you play online, the name you type and the state of the game are kept on the game server while the room is in use. A room is deleted automatically 30 minutes after everyone has left. Quick match only remembers which table is filling up and how many seats it has handed out, not who sat down. Your name is only shown to the players at your table.</p>
+    </section>
+
+    <section aria-labelledby="hosts">
+      <h2 id="hosts" data-i18n="privacy.hosts.title">Who else is involved</h2>
+      <p data-i18n="privacy.hosts.text">The website is hosted by Vercel, and the game server runs on Cloudflare. Like any web host, they process technical data such as your IP address to deliver the pages and keep the service safe. These logs are theirs; this project doesn’t collect or store them. Fonts and images come from this site itself, so no other services are contacted.</p>
+      <p>
+        <a class="link" href="https://vercel.com/legal/privacy-policy" rel="noopener" data-i18n="privacy.hosts.vercel">Vercel’s privacy policy</a>
+        <span class="mx-3 text-pergament-mute" aria-hidden="true">/</span>
+        <a class="link" href="https://www.cloudflare.com/privacypolicy/" rel="noopener" data-i18n="privacy.hosts.cloudflare">Cloudflare’s privacy policy</a>
+      </p>
+    </section>
+
+    <section aria-labelledby="parents-title" id="parents" class="scroll-mt-8">
+      <h2 id="parents-title" data-i18n="privacy.parents.title">For parents</h2>
+      <ul>
+        <li data-i18n="privacy.parents.chat">There is no chat. Players can only send six fixed emotes, like a grin or a gasp.</li>
+        <li data-i18n="privacy.parents.nothing">There are no accounts, no ads and nothing to buy.</li>
+        <li data-i18n="privacy.parents.name">The only thing other players see is the name your child types in. A first name or a nickname is enough.</li>
+        <li data-i18n="privacy.parents.who">Online, your child plays either with people you shared a room link with, or with other players at an open quick-match table. Practice games against bots stay entirely in the browser.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="contact-title" id="contact" class="scroll-mt-8">
+      <h2 id="contact-title" data-i18n="privacy.contact.title">Contact</h2>
+      <p>
+        <span data-i18n="privacy.contact.text">Questions, ideas, or a request about your data? Write to</span>
+        <a class="link font-semibold text-pergament" href="#contact" data-mail="xiarui091|gmail.com" data-mail-text>xiarui091 [at] gmail.com</a>
+      </p>
+    </section>
+  </div>
+</main>
+
+<footer class="relative bg-russ/60 shadow-[inset_0_1px_0_rgba(198,161,91,.18)]">
+  <div class="mx-auto max-w-6xl px-5 sm:px-8 py-12 flex flex-wrap items-center justify-between gap-6">
+    <a href="index.html" class="logo-mark ring-focus [--logo:120px] transition-transform duration-300 hover:-translate-y-0.5 active:scale-95" aria-label="Schwarzer Peter home" data-i18n-attr="aria-label:home.aria"><img src="/brand_assets/logo-web.jpg" alt=""></a>
+    <p class="text-sm text-pergament-mute"><span data-i18n="footer.copyright">© 2026 Schwarzer Peter. Made in Sassland for Saskja.</span></p>
+  </div>
+</footer>
+</body>
+</html>

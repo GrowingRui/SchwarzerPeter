@@ -18,6 +18,8 @@
     "vite": "^8.3.5"
   },
   "dependencies": {
+    "@fontsource/figtree": "^5.3.0",
+    "@fontsource/gloock": "^5.3.0",
     "@sp/engine": "*",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

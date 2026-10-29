@@ -14,6 +14,7 @@ export default defineConfig({
       input: {
         main: page('index.html'),
         deck: page('deck.html'),
+        privacy: page('privacy.html'),
         play: page('play.html'),
       },
     },

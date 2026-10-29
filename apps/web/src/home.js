@@ -1,8 +1,10 @@
 import './styles.css';
 import { DECK, render, mountAll } from './cards.js';
 import { applyStatic, t } from './i18n';
+import { wireMailLinks } from './site.js';
 
 applyStatic();
+wireMailLinks();
 for (const a of document.querySelectorAll('a[data-card]')) {
   const card = DECK.find((c) => c.key === a.dataset.card);
   a.setAttribute('aria-label', card ? t('card.aria', { name: card.name }) : t('card.peterAria'));

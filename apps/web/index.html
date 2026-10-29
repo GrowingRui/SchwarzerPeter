@@ -16,10 +16,19 @@
   } catch (e) {}
 </script>
 <style>.i18n-pending body { visibility: hidden; }</style>
-<link rel="icon" href="/brand_assets/logo-web.jpg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#1E2430">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Schwarzer Peter">
+<meta property="og:title" content="Schwarzer Peter: the card game, online">
+<meta property="og:description" content="Play the classic card game in your browser: with friends, at an open table, or against bots. Free, no sign-up.">
+<meta property="og:url" content="https://schwarzerpeter.vercel.app/">
+<meta property="og:image" content="https://schwarzerpeter.vercel.app/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Schwarzer Peter logo and five cards from the Alpine deck, with the black cat in front">
+<meta name="twitter:card" content="summary_large_image">
 <script type="module" src="/src/home.js"></script>
 </head>
 <body class="font-sans antialiased min-h-screen overflow-x-hidden">
@@ -42,8 +51,7 @@
         <button type="button" data-set-lang="en" aria-pressed="true" lang="en" title="English">EN</button>
         <button type="button" data-set-lang="de" aria-pressed="false" lang="de" title="Deutsch">DE</button>
       </div>
-      <a href="#" class="link hidden sm:inline text-[15px] mr-1" data-i18n="nav.signin">Sign in</a>
-      <a href="#play" class="btn btn-glut text-[15px] py-2.5! px-5!" data-i18n="cta.playNow">Play now</a>
+      <a href="/play.html?quick=1" class="btn btn-glut text-[15px] py-2.5! px-5!" data-i18n="cta.playNow">Play now</a>
     </div>
   </nav>
 </header>
@@ -60,7 +68,7 @@
           The old German card game, now in your browser. Match pairs, draw from your neighbour’s hand, and pass the black cat along before the round ends.
         </p>
         <div class="mt-10 flex flex-wrap items-center gap-4">
-          <a href="#play" class="btn btn-glut text-base" data-i18n="cta.playNow">Play now</a>
+          <a href="/play.html?quick=1" class="btn btn-glut text-base" data-i18n="cta.playNow">Play now</a>
           <a href="/play.html?create=1" class="btn btn-line text-base" data-i18n="hero.invite">Invite friends</a>
         </div>
         <p class="mt-6 text-sm text-pergament-mute" data-i18n="hero.note">Free to play, 2 to 6 players. Nothing to install.</p>
@@ -210,12 +218,8 @@
       </div>
 
       <figure class="frame elev-2 rounded-[22px] [--r:22px] p-3 bg-kohle-raised">
-        <div class="img-treat rounded-[16px] aspect-[4/3]">
-          <img src="https://placehold.co/880x660/2B3342/C6A15B?text=Game+table+preview&font=playfair-display" alt="Preview of a four-player game table" data-i18n-attr="alt:online.imgAlt">
-          <figcaption class="absolute z-10 bottom-4 left-5 right-5 flex items-center justify-between gap-4 text-sm">
-            <span class="text-pergament" data-i18n="online.caption">Lena is choosing a card from your hand</span>
-            <span class="hidden sm:flex items-center gap-2 text-pergament-dim"><span class="w-2 h-2 rounded-full bg-glut"></span>Live</span>
-          </figcaption>
+        <div class="img-treat img-treat-soft rounded-[16px] aspect-[4/3]">
+          <img src="/images/table-en.webp" width="1364" height="1022" loading="lazy" alt="A game in progress: Lena is choosing one of your cards, and the card she points at is lifted in your hand." data-i18n-attr="src:online.imgSrc;alt:online.imgAlt">
         </div>
       </figure>
     </div>
@@ -243,10 +247,9 @@
     <a href="#" class="logo-mark ring-focus [--logo:120px] transition-transform duration-300 hover:-translate-y-0.5 active:scale-95" aria-label="Schwarzer Peter home" data-i18n-attr="aria-label:home.aria"><img src="/brand_assets/logo-web.jpg" alt=""></a>
     <ul class="flex flex-wrap gap-x-8 gap-y-3 text-[15px] md:justify-center md:pt-5">
       <li><a class="link" href="#rules" data-i18n="footer.rules">Rules</a></li>
-      <li><a class="link" href="#" data-i18n="footer.help">Help</a></li>
-      <li><a class="link" href="#" data-i18n="footer.parents">For parents</a></li>
-      <li><a class="link" href="#" data-i18n="footer.privacy">Privacy</a></li>
-      <li><a class="link" href="#" data-i18n="footer.contact">Contact</a></li>
+      <li><a class="link" href="/privacy.html#parents" data-i18n="footer.parents">For parents</a></li>
+      <li><a class="link" href="/privacy.html" data-i18n="footer.privacy">Privacy</a></li>
+      <li><a class="link" href="/privacy.html#contact" data-mail="xiarui091|gmail.com" data-i18n="footer.contact">Contact</a></li>
     </ul>
     <div class="md:pt-5">
       <label for="lang" class="sr-only" data-i18n="lang.label">Language</label>
