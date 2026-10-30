@@ -6,6 +6,7 @@ import type { GameHost } from './host';
 import { CardBack, CardFace, cardName } from './cards';
 import { fly, rectOf, setTempo, wait } from './fly';
 import { TopBar } from './Setup';
+import { Confetti, Embers, SootPuff } from './Celebrate';
 import { ordinal, t, tn } from '../i18n';
 
 type Phase = 'dealing' | 'playing' | 'over';
@@ -39,6 +40,7 @@ const PILE = '[data-pile-target]';
 export interface ResultAction {
   readonly label: string;
   readonly onClick: () => void;
+  readonly disabled?: boolean;
 }
 
 export interface TableProps {
@@ -87,6 +89,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
   const [bubbles, setBubbles] = useState<Readonly<Record<PlayerId, Bubble>>>({});
   const [shuffles, setShuffles] = useState<Readonly<Record<PlayerId, number>>>({});
   const [flash, setFlash] = useState(0);
+  const [cheer, setCheer] = useState(0); // you just went out
   const [announcement, setAnnouncement] = useState('');
   const bubbleKey = useRef(0);
   const [timer, setTimer] = useState<TurnTimer | null>(null);
@@ -119,6 +122,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
       for (const e of events) {
         if (e.type === 'playerOut') {
           setMessage(e.playerId === you ? { text: t('table.youOut'), tone: 'good' } : { text: t('table.playerOut', { name: nameOf(e.playerId) }) });
+          if (e.playerId === you) setCheer((c) => c + 1);
           await wait(1000);
           if (e.playerId === you) setTempo(0.55);
         } else if (e.type === 'gameOver') {
@@ -479,6 +483,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
               onArrange={canArrange ? arrange : undefined}
             />
             {bubbles[you] && <ReactionBubble key={bubbles[you].key} emote={bubbles[you].emote} className="bubble-you" />}
+            {cheer > 0 && <Embers key={cheer} />}
           </div>
           <div className="your-bar">
             <div className="your-bar-start">
@@ -817,12 +822,16 @@ function Result({ view, you, actions }: { view: PlayerView; you: PlayerId; actio
   const place = view.finishOrder.indexOf(you) + 1;
   const ref = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  useEffect(() => (ref.current ?? dialogRef.current)?.focus(), []);
+  const waiting = !!actions.primary?.disabled;
+  // Focus the main button; once it's used up (rematch asked for), keep focus in the dialog.
+  useEffect(() => ((waiting ? null : ref.current) ?? dialogRef.current)?.focus(), [waiting]);
   const peter: Card = { id: 'result-peter', face: PETER };
   return (
     <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="result-title">
+      {!lost && <Confetti />}
       <div ref={dialogRef} tabIndex={-1} className="dialog frame elev-2 rounded-[28px] [--r:28px] outline-none">
-        <div className="mx-auto w-[clamp(110px,22vw,150px)] rotate-[4deg]">
+        <div className="relative isolate mx-auto w-[clamp(110px,22vw,150px)] rotate-[4deg]">
+          {lost && <SootPuff />}
           <CardFace card={peter} className="result-card" />
         </div>
         <h2 id="result-title" className="h-display mt-7 text-center text-[clamp(2rem,5vw,2.8rem)]">
@@ -856,7 +865,7 @@ function Result({ view, you, actions }: { view: PlayerView; you: PlayerId; actio
         {(actions.primary || actions.secondary) && (
           <div className="mt-9 flex flex-wrap justify-center gap-3">
             {actions.primary && (
-              <button ref={ref} type="button" className="btn btn-glut" onClick={actions.primary.onClick}>
+              <button ref={ref} type="button" className="btn btn-glut" onClick={actions.primary.onClick} disabled={actions.primary.disabled}>
                 {actions.primary.label}
               </button>
             )}
@@ -867,7 +876,11 @@ function Result({ view, you, actions }: { view: PlayerView; you: PlayerId; actio
             )}
           </div>
         )}
-        {actions.note && <p className="mt-8 text-center text-pergament-dim">{actions.note}</p>}
+        {actions.note && (
+          <p className="mt-6 text-center text-pergament-dim" aria-live="polite">
+            {actions.note}
+          </p>
+        )}
         <p className="mt-6 text-center text-sm">
           <a href="/" className="link">
             {t('result.home')}

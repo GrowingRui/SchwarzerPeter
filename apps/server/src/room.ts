@@ -48,6 +48,8 @@ export interface RoomState {
   readonly startAt?: number | null;
   /** Kept the cat last round, and carries the soot into the next one. */
   readonly sooty?: PlayerId | null;
+  /** After a game: who asked for a rematch. */
+  readonly rematch?: readonly PlayerId[];
   readonly hostId: PlayerId | null;
   readonly members: readonly Member[];
   readonly status: 'lobby' | 'playing' | 'over';
@@ -115,6 +117,7 @@ export function roomInfo(s: RoomState, now = Date.now()): RoomInfo {
     round: s.round,
     maxPlayers: seatsFor(s),
     sooty: s.sooty ?? null,
+    rematch: s.rematch ?? [],
     members: s.members.map((m) => ({ id: m.id, name: m.name, isBot: m.bot, isHost: m.id === s.hostId, connected: m.bot || m.connected })),
   };
 }
@@ -157,6 +160,7 @@ export function disconnect(s: RoomState, memberId: PlayerId, now: number, random
   if (!s.members.some((m) => m.id === memberId)) return { state: s, out: [] };
   if (isQuick(s) && s.status === 'lobby') return leave(touch(s, now), memberId, now, random);
   const state = touch(updateMember(s, memberId, { connected: false }), now);
+  if (state.status === 'over') return maybeRematch(state, now, random);
   const next = reschedule(state, now, random, { force: isDrawer(state, memberId) });
   return { state: next, out: [...broadcastRoom(state, now), ...(isDrawer(state, memberId) ? timerSteps(next, now) : [])] };
 }
@@ -182,6 +186,8 @@ export function handle(s: RoomState, memberId: PlayerId, msg: ClientMessage, now
       return playDraw(s, memberId, msg.slot, now, random);
     case 'again':
       return backToLobby(s, memberId, now);
+    case 'rematch':
+      return voteRematch(s, memberId, now, random);
     case 'leave':
       return leave(s, memberId, now, random);
     case 'arrange':
@@ -248,14 +254,18 @@ function startGame(s: RoomState, bots: number, now: number, random: Random): Roo
     bot: true,
     connected: true,
   }));
-  const members = [...humans, ...botMembers];
+  return deal(s, [...humans, ...botMembers], now, random);
+}
+
+/** Deal a new game for exactly these members. */
+function deal(s: RoomState, members: readonly Member[], now: number, random: Random): RoomResult {
   const { state: game, events } = createGame({
     players: members.map((m) => ({ id: m.id, name: m.name })),
     pairs: ALPINE_DECK,
     seed: Math.floor(random() * 2 ** 31),
   });
 
-  let state: RoomState = { ...s, members, game, startAt: null, status: game.phase === 'over' ? 'over' : 'playing', round: s.round + 1 };
+  let state: RoomState = { ...s, members, game, startAt: null, rematch: [], status: game.phase === 'over' ? 'over' : 'playing', round: s.round + 1 };
   const out = [...broadcastRoom(state, now), ...sendSteps(state, (id) => ({ kind: 'deal', events: events.map((e) => eventFor(e, id)), view: viewFor(game, id) }))];
   state = reschedule(state, now, random, { force: true, extra: TIMING.afterDeal });
   return { state, out: [...out, ...timerSteps(state, now)] };
@@ -270,7 +280,28 @@ function backToLobby(s: RoomState, memberId: PlayerId, now: number): RoomResult 
   if (isQuick(s) || memberId !== s.hostId) throw new RoomError('NOT_HOST', 'Only the host can start another round.');
   if (s.status !== 'over') throw new RoomError('WRONG_PHASE', 'The game isn’t over yet.');
   // Bots leave with the old game, and so do players who left during it.
-  const state: RoomState = { ...s, status: 'lobby', game: null, members: s.members.filter((m) => !m.bot), deadline: null, deadlineTurn: null };
+  const state: RoomState = { ...s, status: 'lobby', game: null, rematch: [], members: s.members.filter((m) => !m.bot), deadline: null, deadlineTurn: null };
+  return { state, out: broadcastRoom(state, now) };
+}
+
+/** You'd like a rematch. */
+function voteRematch(s: RoomState, memberId: PlayerId, now: number, random: Random): RoomResult {
+  if (s.status !== 'over') throw new RoomError('WRONG_PHASE', 'The game isn’t over yet.');
+  const votes = s.rematch ?? [];
+  return maybeRematch(votes.includes(memberId) ? s : { ...s, rematch: [...votes, memberId] }, now, random);
+}
+
+/**
+ * Deal again at the same table, with the same bots, once every person still
+ * connected has asked for it. Otherwise just tell everyone who has asked.
+ */
+function maybeRematch(s: RoomState, now: number, random: Random): RoomResult {
+  // Only people still at the table count; anyone who left has become a bot.
+  const people = s.members.filter((m) => !m.bot);
+  const votes = (s.rematch ?? []).filter((id) => people.some((m) => m.id === id));
+  const state: RoomState = { ...s, rematch: votes };
+  const waiting = people.filter((m) => m.connected && !votes.includes(m.id));
+  if (votes.length && !waiting.length) return deal(state, state.members, now, random);
   return { state, out: broadcastRoom(state, now) };
 }
 
@@ -284,6 +315,7 @@ function leave(s: RoomState, memberId: PlayerId, now: number, random: Random): R
     state = updateMember(s, memberId, { bot: true, token: '', connected: false });
   }
   if (state.hostId === memberId) state = { ...state, hostId: state.members.find((m) => !m.bot)?.id ?? null };
+  if (state.status === 'over') return maybeRematch(state, now, random);
   state = reschedule(state, now, random, { force: isDrawer(state, memberId) });
   return { state, out: broadcastRoom(state, now) };
 }

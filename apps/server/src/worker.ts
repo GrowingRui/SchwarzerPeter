@@ -2,6 +2,7 @@
  * Schwarzer Peter game server: a Cloudflare Worker with one Durable Object per room.
  *
  *   POST /api/rooms                 create a room, returns { code }
+ *   POST /api/quick                 a seat at the quick-match table, returns { code }
  *   GET  /api/rooms/:code/ws        WebSocket for playing in that room
  *
  * Uses the WebSocket Hibernation API, so an idle room costs nothing while
@@ -9,11 +10,13 @@
  */
 import { DurableObject } from 'cloudflare:workers';
 import { QUICK_SEATS, ROOM_CODE, ROOM_CODE_ALPHABET, parseClientMessage, type RoomMode, type ServerMessage } from '@sp/engine/protocol';
+import { LIMITS, fullAt, take, type Bucket, type LimitKind } from './limits';
 import { RoomError, disconnect, handle, join, newRoom, nextAlarm, tick, type Outgoing, type RoomResult, type RoomState } from './room';
 
 export interface Env {
   ROOMS: DurableObjectNamespace<Room>;
   MATCHMAKER: DurableObjectNamespace<Matchmaker>;
+  LIMITER: DurableObjectNamespace<Limiter>;
   /** Comma-separated origins allowed to create rooms, e.g. https://schwarzerpeter.vercel.app */
   ALLOWED_ORIGINS?: string;
 }
@@ -196,6 +199,45 @@ export class Matchmaker extends DurableObject<Env> {
 }
 
 /* -------------------------------------------------------------------- */
+/* Limits                                                                */
+/* -------------------------------------------------------------------- */
+
+/**
+ * One instance per address. Counts room creations and quick-match requests
+ * so one visitor can't open thousands of rooms. It keeps only token counts,
+ * and forgets them once the buckets are full again.
+ */
+export class Limiter extends DurableObject<Env> {
+  /** Returns 0 if the request may go ahead, otherwise milliseconds to wait. */
+  async take(kind: LimitKind): Promise<number> {
+    const now = Date.now();
+    const buckets = (await this.ctx.storage.get<Partial<Record<LimitKind, Bucket>>>('buckets')) ?? {};
+    const result = take(buckets[kind], LIMITS[kind], now);
+    const next = { ...buckets, [kind]: result.bucket };
+    await this.ctx.storage.put('buckets', next);
+    const forgetAt = Math.max(...(Object.keys(next) as LimitKind[]).map((k) => fullAt(next[k]!, LIMITS[k])));
+    await this.ctx.storage.setAlarm(Math.max(forgetAt, now + 1000));
+    return result.ok ? 0 : result.retryAfterMs;
+  }
+
+  async alarm(): Promise<void> {
+    await this.ctx.storage.deleteAll();
+  }
+}
+
+/** A 429 answer if this address has asked too often, otherwise null. */
+async function limited(request: Request, env: Env, kind: LimitKind, cors: Record<string, string>): Promise<Response | null> {
+  const address = request.headers.get('CF-Connecting-IP') ?? 'local';
+  const waitMs = await env.LIMITER.get(env.LIMITER.idFromName(address)).take(kind);
+  if (!waitMs) return null;
+  const seconds = Math.ceil(waitMs / 1000);
+  return Response.json(
+    { error: 'Too many new rooms from this address. Wait a moment and try again.', retryAfter: seconds },
+    { status: 429, headers: { ...cors, 'Retry-After': String(seconds), 'Access-Control-Expose-Headers': 'Retry-After' } },
+  );
+}
+
+/* -------------------------------------------------------------------- */
 /* Worker entry                                                          */
 /* -------------------------------------------------------------------- */
 
@@ -208,6 +250,8 @@ export default {
 
     if (url.pathname === '/api/rooms' && request.method === 'POST') {
       if (!cors['Access-Control-Allow-Origin']) return new Response('Origin not allowed', { status: 403 });
+      const tooMany = await limited(request, env, 'room', cors);
+      if (tooMany) return tooMany;
       const code = await createRoom(env, 'private');
       return code
         ? Response.json({ code }, { status: 201, headers: cors })
@@ -217,6 +261,8 @@ export default {
     // Quick match: the code of the table that is filling up right now.
     if (url.pathname === '/api/quick' && request.method === 'POST') {
       if (!cors['Access-Control-Allow-Origin']) return new Response('Origin not allowed', { status: 403 });
+      const tooMany = await limited(request, env, 'quick', cors);
+      if (tooMany) return tooMany;
       const code = await env.MATCHMAKER.get(env.MATCHMAKER.idFromName('tables')).seat();
       return code
         ? Response.json({ code }, { status: 200, headers: cors })

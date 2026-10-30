@@ -53,7 +53,13 @@ There are no accounts: names live only in the room and are deleted with it.
 
 Whenever a person has to draw online, the server sends a live `timer` step (`playerId`, game `turn`, `endsInMs`) to everyone at the table: 45 seconds normally, 12 seconds if the drawer has lost connection. The table shows it once its view has caught up to that turn: a bar under the drawer's seat, and for yourself a bar above your hand plus a warning in the last 15 seconds. Practice games have no timer.
 
-The room remembers who kept the cat (`sooty` in the room info). In the next round in that room, that player's avatar carries a soot smudge and the round opens with a short announcement. Practice games do the same when you choose Play again with the same bots.
+The room remembers who kept the cat (`sooty` in the room info). In the next round in that room, that player's avatar carries a soot smudge and the round opens with a short announcement. Practice games do the same when you choose Rematch with the same bots.
+
+## Rematch and celebrations
+
+After an online game, everyone sees Rematch. Each press sends `rematch`; the room lists who asked (`rematch` in the room info), and once every person still connected has asked, the server deals a new round at the same table with the same bots. People who left or lost connection aren't waited for. In private rooms the host can also choose Change players (`again`), which takes everyone back to the lobby. A new round gets a new table: `room-client.ts` holds that round's steps until the new table subscribes.
+
+`src/play/Celebrate.tsx` draws the small end-of-game moments: embers when you lay down your last card, confetti on the result screen when you're safe, and a puff of smoke around the cat when you kept it. They only animate transform and opacity and are hidden for reduced motion.
 
 ## Languages
 
@@ -64,6 +70,7 @@ The site is in English and German. All text lives in `apps/web/src/i18n.ts`. Sta
 `apps/server/src/room.ts` holds all room logic as plain functions (join, start, draw, leave, timers) and is tested in Node. `apps/server/src/worker.ts` wraps it in a Durable Object: it stores the room after every change, delivers messages over hibernating WebSockets, and uses the alarm for bot moves and timeouts.
 
 - `POST /api/rooms` creates a room with a 5-letter code. It only accepts origins listed in `ALLOWED_ORIGINS` (`wrangler.jsonc`) or localhost.
+- Creating rooms and asking for quick-match seats is limited per address by the `Limiter` Durable Object (one per IP, `src/limits.ts`): 8 rooms in a row, then one more per minute; 12 quick-match requests, then one per 15 seconds. Too many answers `429` with `Retry-After`, and the page says how long to wait. The limiter forgets an address once its allowance is full again.
 - `GET /api/rooms/:code/ws` is the WebSocket. The first message is `hello` with a name, plus the saved token when reconnecting.
 - Bots move about 3 seconds apart so everyone's animations keep up. A player who doesn't draw within 45 seconds gets a random card. Someone who disconnects has their turns drawn for them after 12 seconds, and their seat is kept until they reconnect. Rooms nobody has been connected to for 30 minutes are deleted.
 

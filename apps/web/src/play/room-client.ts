@@ -2,7 +2,7 @@ import type { ClientMessage, ErrorCode, RoomInfo, ServerMessage, Step } from '@s
 import type { PlayerId } from '@sp/engine';
 import type { GameHost } from './host';
 import { SERVER_URL, saveName } from './config';
-import { t } from '../i18n';
+import { t, tn } from '../i18n';
 
 export interface RoomSnapshot {
   readonly status: 'idle' | 'connecting' | 'open' | 'reconnecting' | 'closed';
@@ -20,20 +20,30 @@ export interface RoomSnapshot {
 const FATAL: readonly ErrorCode[] = ['ROOM_NOT_FOUND', 'ROOM_FULL', 'GAME_IN_PROGRESS'];
 const tokenKey = (code: string) => `sp.room.${code}`;
 
-/** Create a room on the game server and return its code. */
-/** Ask the game server for a seat at the quick-match table that is filling up. Returns its code. */
-export async function findQuickTable(): Promise<string> {
-  const res = await fetch(`${SERVER_URL}/api/quick`, { method: 'POST' });
+/** The server refused because this address opened too many rooms just now. */
+export class TooManyRooms extends Error {
+  constructor(readonly retryAfterSeconds: number) {
+    super('Too many new rooms from this address.');
+  }
+}
+
+async function askForCode(path: string): Promise<string> {
+  const res = await fetch(`${SERVER_URL}${path}`, { method: 'POST' });
+  if (res.status === 429) throw new TooManyRooms(Number(res.headers.get('Retry-After')) || 60);
   if (!res.ok) throw new Error(`The game server answered ${res.status}.`);
   const { code } = (await res.json()) as { code: string };
   return code;
 }
 
-export async function createRoom(): Promise<string> {
-  const res = await fetch(`${SERVER_URL}/api/rooms`, { method: 'POST' });
-  if (!res.ok) throw new Error(`The game server answered ${res.status}.`);
-  const { code } = (await res.json()) as { code: string };
-  return code;
+/** Ask the game server for a seat at the quick-match table that is filling up. Returns its code. */
+export const findQuickTable = () => askForCode('/api/quick');
+
+/** Create a room on the game server and return its code. */
+export const createRoom = () => askForCode('/api/rooms');
+
+/** What to tell the player when asking for a room or a seat failed. */
+export function roomErrorText(e: unknown): string {
+  return e instanceof TooManyRooms ? tn('create.tooMany', e.retryAfterSeconds) : t('create.error');
 }
 
 /**
@@ -143,6 +153,11 @@ export class RoomClient {
         break;
       case 'room':
         if (m.room.status === 'lobby') this.buffer = [];
+        // A new round (a rematch) gets a new table: hold its steps until that table listens.
+        if (this.snap.room && m.room.round !== this.snap.room.round) {
+          this.buffer = [];
+          this.stepListeners.clear();
+        }
         this.update({ room: m.room, roomAt: Date.now() });
         break;
       case 'step':

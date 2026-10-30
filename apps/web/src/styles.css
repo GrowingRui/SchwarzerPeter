@@ -428,10 +428,56 @@
   }
   @keyframes peter-flash { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
 
+  /* Celebrations: confetti when you're safe, embers when you go out, soot when you keep the cat. */
+  .celebrate { position: absolute; pointer-events: none; }
+  .confetti { position: fixed; left: 50%; top: 30%; z-index: 92; width: 0; height: 0; }
+  .confetti-piece {
+    position: absolute; left: 0; top: 0; width: 9px; height: 13px; opacity: 0;
+    animation: confetti var(--dur) var(--delay) both;
+  }
+  .confetti-piece > i { display: block; width: 100%; height: 100%; border-radius: 2px; animation: flutter var(--flip) linear infinite alternate; }
+  .confetti-piece > i.is-round { width: 9px; height: 9px; border-radius: 50%; }
+  .confetti-piece > i.is-long { width: 5px; height: 15px; }
+  @keyframes confetti {
+    0% { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(.3); animation-timing-function: cubic-bezier(.15, .7, .3, 1); }
+    6% { opacity: 1; }
+    32% { transform: translate(calc(var(--dx) * .7), var(--up)) rotate(calc(var(--rot) * .35)) scale(1); animation-timing-function: cubic-bezier(.45, 0, .75, .6); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--dx), var(--fall)) rotate(var(--rot)) scale(1); }
+  }
+  @keyframes flutter { from { transform: scaleX(1); } to { transform: scaleX(.15); } }
+
+  .embers { inset: auto 0 30% 0; height: 0; z-index: 5; }
+  .ember {
+    position: absolute; left: var(--x); top: 0; width: var(--size); height: var(--size); border-radius: 50%; opacity: 0;
+    box-shadow: 0 0 10px 2px rgba(232, 98, 44, .55);
+    animation: ember var(--dur) var(--delay) cubic-bezier(.2, .6, .35, 1) both;
+  }
+  @keyframes ember {
+    0% { opacity: 0; transform: translate(0, 0) scale(.4); }
+    15% { opacity: 1; transform: translate(calc(var(--dx) * .2), calc(var(--rise) * .15)) scale(1); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--rise)) scale(.5); }
+  }
+
+  /* Smoke from the cat's chimney: pale enough to read on the dark dialog, drifting over the card. */
+  .soot { inset: 0; z-index: 1; }
+  .soot-puff {
+    position: absolute; left: 50%; top: 50%; width: var(--size); aspect-ratio: 1; margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
+    border-radius: 50%; opacity: 0; filter: blur(5px);
+    background: radial-gradient(closest-side, rgba(154, 146, 127, .55), rgba(154, 146, 127, .28) 55%, transparent);
+    animation: soot-puff var(--dur) var(--delay) cubic-bezier(.16, 1, .3, 1) both;
+  }
+  @keyframes soot-puff {
+    0% { opacity: 0; transform: translate(0, 0) scale(.4); }
+    18% { opacity: 1; }
+    100% { opacity: 0; transform: translate(calc(var(--dx) * 2.2), calc(var(--dy) * 2.2 - 40%)) scale(2.2); }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .turn-timer > span { animation: none; }
     .reaction-bubble { animation: none; }
     .peter-flash { display: none; }
+    .celebrate { display: none; }
   }
 
   .dialog-backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 1.25rem; background: rgba(18, 21, 27, .74); animation: fade-in .3s ease both; }

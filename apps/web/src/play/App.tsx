@@ -47,7 +47,7 @@ export function App() {
       sooty={sooty}
       onGameOver={(view) => setSooty(view.loser)}
       result={{
-        primary: { label: t('result.again'), onClick: () => start(settings, true) },
+        primary: { label: t('rematch.button'), onClick: () => start(settings, true) },
         secondary: { label: t('result.changePlayers'), onClick: () => setHost(null) },
       }}
       leaveNote={t('leave.practiceNote')}

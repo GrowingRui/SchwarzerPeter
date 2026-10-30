@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, currentTurn, type GameState } from '@sp/engine';
-import { QUICK_SEATS, QUICK_WAIT_MS, type ServerMessage, type Step } from '@sp/engine/protocol';
+import { QUICK_SEATS, QUICK_WAIT_MS, parseClientMessage, type ServerMessage, type Step } from '@sp/engine/protocol';
 import { RoomError, TIMING, disconnect, handle, join, newRoom, nextAlarm, roomInfo, tick, type Outgoing, type RoomState } from '../src/room';
 
 const seeded = (seed: number) => {
@@ -378,6 +378,63 @@ describe('after the game', () => {
     expect(back.status).toBe('lobby');
     expect(back.game).toBeNull();
     expect(back.members.map((m) => m.id)).toEqual(ids);
+  });
+
+  const finished = (names: string[], bots: number, seed: number) => {
+    const random = seeded(seed);
+    let { state, ids } = lobby(names, random);
+    state = handle(state, ids[0]!, { t: 'start', bots }, 0, random).state;
+    while (state.status === 'playing') state = tick(state, nextAlarm(state)!, random).state;
+    return { state, ids, random };
+  };
+
+  it('deals a rematch with the same table once everyone has asked', () => {
+    let { state, ids, random } = finished(['Rui', 'Lena'], 2, 9);
+    const before = state.members.map((m) => [m.id, m.name]);
+    expect(parseClientMessage('{"t":"rematch"}')).toEqual({ t: 'rematch' });
+
+    const one = handle(state, ids[1]!, { t: 'rematch' }, 1, random);
+    expect(one.state.status).toBe('over');
+    expect(to(one.out, ids[0]!).find((m) => m.t === 'room')).toMatchObject({ room: { rematch: [ids[1]] } });
+    expect(handle(one.state, ids[1]!, { t: 'rematch' }, 2, random).state.rematch).toEqual([ids[1]]);
+
+    const both = handle(one.state, ids[0]!, { t: 'rematch' }, 3, random);
+    state = both.state;
+    expect(state.status).toBe('playing');
+    expect(state.round).toBe(2);
+    expect(state.rematch).toEqual([]);
+    expect(state.members.map((m) => [m.id, m.name])).toEqual(before);
+    expect(steps(both.out, ids[1]!).some((s) => s.kind === 'deal')).toBe(true);
+  });
+
+  it('works in quick-match tables too', () => {
+    const random = seeded(10);
+    const first = join(newRoom('QUICK', 0, 'quick'), 'Rui', undefined, 0, random);
+    let state = tick(first.state, QUICK_WAIT_MS, random).state;
+    while (state.status === 'playing') state = tick(state, nextAlarm(state)!, random).state;
+    state = handle(state, first.memberId, { t: 'rematch' }, 1, random).state;
+    expect(state.status).toBe('playing');
+    expect(state.members).toHaveLength(QUICK_SEATS);
+  });
+
+  it('doesn’t wait for people who left or lost connection', () => {
+    let { state, ids, random } = finished(['Rui', 'Lena', 'Max'], 0, 11);
+    state = handle(state, ids[0]!, { t: 'rematch' }, 1, random).state;
+    state = disconnect(state, ids[1]!, 2, random).state;
+    expect(state.status).toBe('over');
+    state = handle(state, ids[2]!, { t: 'leave' }, 3, random).state;
+    expect(state.status).toBe('playing');
+    expect(state.members.find((m) => m.id === ids[2])!.bot).toBe(true);
+  });
+
+  it('forgets a vote when that person leaves, and only after a game', () => {
+    let { state, ids, random } = finished(['Rui', 'Lena', 'Max'], 0, 12);
+    state = handle(state, ids[1]!, { t: 'rematch' }, 1, random).state;
+    state = handle(state, ids[1]!, { t: 'leave' }, 2, random).state;
+    expect(state.rematch).toEqual([]);
+    expect(state.status).toBe('over');
+    const waiting = lobby(['A', 'B']);
+    expect(errorCode(() => handle(waiting.state, waiting.ids[0]!, { t: 'rematch' }, 0, random))).toBe('WRONG_PHASE');
   });
 
   it('expires a room nobody has been connected to for a while', () => {

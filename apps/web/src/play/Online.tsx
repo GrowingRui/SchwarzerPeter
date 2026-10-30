@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
 import type { ErrorCode, RoomInfo } from '@sp/engine/protocol';
 import type { PlayerId } from '@sp/engine';
-import { RoomClient, createRoom, findQuickTable } from './room-client';
+import { RoomClient, createRoom, findQuickTable, roomErrorText } from './room-client';
 import { PLAY_PATH, roomLink, saveName, savedName } from './config';
 import { Table } from './Table';
 import { TopBar, useDocumentTitle } from './Setup';
-import { t, tn } from '../i18n';
+import { lang, t, tn } from '../i18n';
 
 /* ------------------------------------------------------------------ */
 /* Quick match                                                         */
@@ -31,9 +31,9 @@ export function QuickMatch({ auto }: { auto: boolean }) {
     setError(null);
     try {
       await goToQuickTable(name.trim() || t('player'));
-    } catch {
+    } catch (e) {
       setBusy(false);
-      setError(t('create.error'));
+      setError(roomErrorText(e));
     }
   };
   const started = useRef(false);
@@ -163,9 +163,9 @@ export function CreateRoom() {
       saveName(name.trim());
       sessionStorage.setItem('sp.autojoin', code);
       location.replace(`${PLAY_PATH}?room=${code}`);
-    } catch {
+    } catch (e) {
       setBusy(false);
-      setError(t('create.error'));
+      setError(roomErrorText(e));
     }
   };
 
@@ -237,6 +237,7 @@ export function OnlineGame({ code }: { code: string }) {
   const hostMember = snap.room.members.find((m) => m.isHost);
   const iAmHost = hostMember?.id === snap.you;
   const quick = snap.room.mode === 'quick';
+  const asked = snap.room.rematch.includes(snap.you!);
   const findAnother = () => {
     client.leave();
     location.replace(`${PLAY_PATH}?quick=1&go=1`);
@@ -258,13 +259,17 @@ export function OnlineGame({ code }: { code: string }) {
           sooty={snap.room.sooty}
           onLeave={leave}
           leaveNote={t('leave.onlineNote')}
-          result={
-            quick
-              ? { primary: { label: t('quick.another'), onClick: findAnother } }
+          result={{
+            primary: asked
+              ? { label: t('rematch.asked'), onClick: () => undefined, disabled: true }
+              : { label: t('rematch.button'), onClick: () => client.send({ t: 'rematch' }) },
+            secondary: quick
+              ? { label: t('quick.another'), onClick: findAnother }
               : iAmHost
-                ? { primary: { label: t('result.again'), onClick: () => client.send({ t: 'again' }) } }
-                : { note: t('room.waitAgain', { name: hostMember?.name ?? t('room.theHost') }) }
-          }
+                ? { label: t('result.changePlayers'), onClick: () => client.send({ t: 'again' }) }
+                : undefined,
+            note: rematchNote(snap.room, snap.you!),
+          }}
         />
       )}
       <ConnectionPill reconnecting={snap.status === 'reconnecting'} notice={snap.notice} />
@@ -421,6 +426,19 @@ function Lobby({ room, you, onStart, onLeave }: { room: RoomInfo; you: PlayerId;
     </Screen>
   );
 }
+
+/** Who has asked for a rematch, or who it's still waiting for. */
+function rematchNote(room: RoomInfo, you: PlayerId): string | undefined {
+  const people = room.members.filter((m) => !m.isBot && m.id !== you);
+  if (room.rematch.includes(you)) {
+    const waiting = people.filter((m) => m.connected && !room.rematch.includes(m.id));
+    return waiting.length ? t('rematch.waitingFor', { names: listNames(waiting.map((m) => m.name)) }) : undefined;
+  }
+  const asking = people.filter((m) => room.rematch.includes(m.id));
+  return asking.length ? tn('rematch.wants', asking.length, { names: listNames(asking.map((m) => m.name)) }) : undefined;
+}
+
+const listNames = (names: string[]) => new Intl.ListFormat(lang, { type: 'conjunction' }).format(names);
 
 /* ------------------------------------------------------------------ */
 /* Problems and small pieces                                           */

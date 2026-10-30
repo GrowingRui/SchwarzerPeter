@@ -68,6 +68,8 @@ export interface RoomInfo {
   readonly maxPlayers: number;
   /** Kept the cat last round: by tradition they carry a smudge of soot into the next one. */
   readonly sooty: PlayerId | null;
+  /** After a game: the people who asked for a rematch. It starts when everyone here has. */
+  readonly rematch: readonly PlayerId[];
 }
 
 export type ClientMessage =
@@ -75,6 +77,8 @@ export type ClientMessage =
   | { readonly t: 'start'; readonly bots: number }
   | { readonly t: 'draw'; readonly slot: number }
   | { readonly t: 'again' }
+  /** After a game: deal again at the same table, once everyone here wants to. */
+  | { readonly t: 'rematch' }
   | { readonly t: 'leave' }
   /** Your hand in a new order: every card id, once. */
   | { readonly t: 'arrange'; readonly order: readonly string[] }
@@ -136,6 +140,8 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
       return { t: 'again' };
     case 'leave':
       return { t: 'leave' };
+    case 'rematch':
+      return { t: 'rematch' };
     case 'arrange':
       return Array.isArray(o.order) && o.order.length <= 40 && o.order.every((id) => typeof id === 'string' && id.length <= 32)
         ? { t: 'arrange', order: o.order as string[] }
