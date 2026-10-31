@@ -7,6 +7,8 @@ import { CardBack, CardFace, cardName } from './cards';
 import { fly, rectOf, setTempo, wait } from './fly';
 import { TopBar } from './Setup';
 import { Confetti, Embers, SootPuff } from './Celebrate';
+import { play as sound } from './sound';
+import { hintSeen, markAllHintsSeen, markHintSeen, type Hint } from './hints';
 import { ordinal, t, tn } from '../i18n';
 
 type Phase = 'dealing' | 'playing' | 'over';
@@ -122,11 +124,15 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
       for (const e of events) {
         if (e.type === 'playerOut') {
           setMessage(e.playerId === you ? { text: t('table.youOut'), tone: 'good' } : { text: t('table.playerOut', { name: nameOf(e.playerId) }) });
-          if (e.playerId === you) setCheer((c) => c + 1);
+          if (e.playerId === you) {
+            setCheer((c) => c + 1);
+            sound('out');
+          }
           await wait(1000);
           if (e.playerId === you) setTempo(0.55);
         } else if (e.type === 'gameOver') {
           setPhase('over');
+          sound(e.loser === you ? 'lose' : 'win');
           setMessage(
             e.loser === you
               ? { text: t('table.youLost'), tone: 'peter' }
@@ -139,9 +145,8 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
           }
         } else if (e.type === 'nextTurn') {
           setPhase('playing');
-          setMessage(
-            turnMessage(e.drawer, e.offerer),
-          );
+          setMessage(turnMessage(e.drawer, e.offerer));
+          if (e.drawer === you) sound('turn');
         }
       }
     }
@@ -155,6 +160,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
         setHiddenPairs(step.view.pairs.length);
         setMessage({ text: t('table.dealing') });
       });
+      sound('shuffle');
       await wait(1500);
 
       // By tradition, last round's loser starts with soot on the nose.
@@ -172,6 +178,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
           commit(() => setExtra((x) => x.filter((c) => !e.cards.some((p) => p.id === c.id))));
           const pile = rectOf(PILE);
           await Promise.all(e.cards.map((c, i) => (from[i] && pile ? fly(from[i]!, pile, { face: c.face, duration: 480 }) : undefined)));
+          sound('pair');
           commit(() => setHiddenPairs((h) => h - 1));
         }
       }
@@ -184,6 +191,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
             const from = rectOf(seatHand(e.playerId));
             const pile = rectOf(PILE);
             if (from && pile) await Promise.all(e.cards.map((c) => fly(from, pile, { face: c.face, duration: 560 })));
+            sound('pair');
             commit(() => setHiddenPairs((h) => h - 1));
           }),
         );
@@ -218,6 +226,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
 
       const to = youDraw ? (match ? matchRect : card ? rectOf(handCard(card.id)) : null) : rectOf(seatHand(drawn.drawer));
       setMessage(drawMessage(drawn, pair ?? null));
+      sound('draw');
       if (from && to) {
         await Promise.all([
           fly(from, to, { face: card?.face ?? null, reveal: youDraw, duration: 640 }),
@@ -233,10 +242,12 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
         if (origin && pile) {
           await Promise.all(pair.cards.map((c, i) => wait(i * 90).then(() => fly(origin, pile, { face: c.face, duration: 520 }))));
         }
+        sound('pair');
         commit(() => setHiddenPairs(0));
         await wait(youDraw ? 700 : 350);
       } else if (youDraw && card?.face === PETER) {
         setFlash((f) => f + 1);
+        sound('peter');
         await wait(1100);
       } else {
         await wait(youDraw || youOffer ? 450 : 150);
@@ -318,11 +329,13 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
         if (step.slot !== null) setMessage({ text: t('table.choosing', { name: nameOf(step.playerId) }) });
       } else if (step.kind === 'rearranged') {
         setShuffles((s) => ({ ...s, [step.playerId]: (s[step.playerId] ?? 0) + 1 }));
+        sound('shuffle');
         setAnnouncement(t('bluff.rearranged', { name: nameOf(step.playerId) }));
       } else if (step.kind === 'timer') {
         setTimer({ playerId: step.playerId, turn: step.turn, endsAt: Date.now() + step.endsInMs, totalMs: step.endsInMs });
       } else {
         showBubble(step.playerId, step.emote);
+        sound('pop');
         setAnnouncement(t('react.announce', { name: nameOf(step.playerId), label: t(`react.${step.emote}`) }));
       }
     }
@@ -361,11 +374,18 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
     return () => clearInterval(id);
   }, [timer]);
 
+  // The last five seconds of your own turn tick.
+  const ticking = timer && timer.playerId === you && viewRef.current?.turn === timer.turn ? Math.ceil((timer.endsAt - now) / 1000) : null;
+  useEffect(() => {
+    if (ticking !== null && ticking > 0 && ticking <= 5) sound('tick');
+  }, [ticking]);
+
   const [cooldown, setCooldown] = useState(false);
   const react = (emote: Emote) => {
     if (cooldown) return;
     host.react(emote);
     showBubble(you, emote);
+    sound('pop');
     setCooldown(true);
     setTimeout(() => setCooldown(false), 1200);
   };
@@ -386,6 +406,8 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
 
   const hand = inPreferredOrder(view.hand, order);
   const canArrange = phase === 'playing' && !me.isOut && hand.length > 1 && extra.length === 0;
+  const holdsPeter = phase === 'playing' && !me.isOut && view.hand.some((c) => c.face === PETER);
+  const drawerName = view.seats.find((s) => s.id === view.drawer)?.name ?? '';
   const arrange = (ids: string[]) => {
     setOrder(ids);
     host.arrange(ids);
@@ -398,6 +420,7 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
     }
     if (ids.every((id, i) => id === hand[i]!.id)) ids.push(ids.shift()!);
     arrange(ids);
+    sound('shuffle');
   };
 
   return (
@@ -468,6 +491,14 @@ export function Table({ host, result, onLeave = goHome, leaveNote = t('leave.pra
               )}
             </div>
           </div>
+          <FirstGameHint
+            moments={{
+              draw: { start: yourTurn, keep: yourTurn, vars: { name: offerer?.name ?? '' } },
+              // These two give way when it's your turn, so the cards on offer stay in view.
+              peter: { start: holdsPeter && !yourTurn, keep: holdsPeter && !yourTurn },
+              bluff: { start: canArrange && view.offerer === you, keep: canArrange && !yourTurn, vars: { name: drawerName } },
+            }}
+          />
         </section>
 
         <section className="your-side" aria-label={t('table.yourHand')}>
@@ -783,6 +814,62 @@ function Hand(props: {
         );
       })}
     </div>
+  );
+}
+
+/** Which tip wins when several moments come at once. */
+const HINT_ORDER: readonly Hint[] = ['draw', 'peter', 'bluff'];
+
+/**
+ * A paper tip pinned to the table during your first games. A tip appears when its
+ * moment first comes up (`start`), stays while it still applies (`keep`), and never
+ * comes back once shown. It never blocks the game.
+ */
+function FirstGameHint({ moments }: { moments: Record<Hint, { start: boolean; keep: boolean; vars?: Record<string, string> }> }) {
+  const [current, setCurrent] = useState<Hint | null>(null);
+  const ref = useRef<HTMLElement>(null);
+  // The drawing tip hangs just under the cards on offer, over your hand.
+  useLayoutEffect(() => {
+    const slip = ref.current;
+    const fan = document.querySelector('.offer-fan');
+    if (current !== 'draw' || !slip?.offsetParent || !fan) return;
+    slip.style.top = `${fan.getBoundingClientRect().bottom - slip.offsetParent.getBoundingClientRect().top + 14}px`;
+  }, [current]);
+  useEffect(() => {
+    if (current) {
+      if (!moments[current].keep) setCurrent(null);
+      return;
+    }
+    const next = HINT_ORDER.find((h) => moments[h].start && !hintSeen(h));
+    if (next) {
+      markHintSeen(next);
+      setCurrent(next);
+    }
+  });
+  if (!current) return null;
+  const vars = moments[current].vars;
+  return (
+    <aside ref={ref} key={current} className={`hint-slip ${current === 'draw' ? 'points-up' : 'points-down'}`} aria-labelledby="hint-title" aria-live="polite">
+      <h2 id="hint-title" className="hint-title">
+        {t(`hint.${current}.title`, vars)}
+      </h2>
+      <p className="hint-text">{t(`hint.${current}.text`, vars)}</p>
+      <div className="hint-actions">
+        <button type="button" className="hint-ok" onClick={() => setCurrent(null)}>
+          {t('hint.ok')}
+        </button>
+        <button
+          type="button"
+          className="hint-stop"
+          onClick={() => {
+            markAllHintsSeen();
+            setCurrent(null);
+          }}
+        >
+          {t('hint.stop')}
+        </button>
+      </div>
+    </aside>
   );
 }
 

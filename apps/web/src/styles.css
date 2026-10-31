@@ -364,6 +364,63 @@
   .shuffle-btn:focus-visible { outline: 2px solid #F4E4C1; outline-offset: 3px; }
   .shuffle-btn svg { color: #C6A15B; }
 
+  /* Sound switch in the top bar: off until you turn it on. */
+  .sound-toggle {
+    display: grid; place-items: center; flex: none; width: 42px; height: 42px; border-radius: 999px; color: #9A927F;
+    box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .4);
+    transition: transform .35s var(--spring), opacity .2s ease;
+  }
+  .sound-toggle:hover { transform: translateY(-1px); color: #F4E4C1; box-shadow: inset 0 0 0 1px #C6A15B; }
+  .sound-toggle:active { transform: scale(.92); transition-duration: .08s; }
+  .sound-toggle:focus-visible { outline: 2px solid #F4E4C1; outline-offset: 3px; }
+  .sound-toggle[aria-pressed="true"] { color: #12151B; background: #C6A15B; box-shadow: none; }
+
+  /* First-game tip: a paper slip pinned to the felt, the one light surface on the table. */
+  .hint-slip {
+    position: absolute; left: 50%; bottom: 1.1rem; z-index: 25; width: min(340px, calc(100% - 2rem));
+    padding: 1.15rem 1.3rem 1rem; border-radius: 4px; color: #12151B;
+    background:
+      radial-gradient(120% 80% at 0% 0%, rgba(255, 255, 255, .35), transparent 60%),
+      radial-gradient(90% 70% at 100% 100%, rgba(198, 161, 91, .28), transparent 70%),
+      #F4E4C1;
+    box-shadow: 0 0 0 1px rgba(142, 118, 70, .55), 0 2px 4px rgba(18, 21, 27, .35), 0 22px 44px -12px rgba(18, 21, 27, .8), 0 30px 60px -30px rgba(232, 98, 44, .35);
+    transform: translateX(-50%) rotate(-1.2deg);
+    animation: hint-in .7s var(--spring) .35s both;
+  }
+  /* Brass pin */
+  .hint-slip::before {
+    content: ''; position: absolute; left: 50%; top: -6px; width: 12px; height: 12px; margin-left: -6px; border-radius: 999px;
+    background: radial-gradient(circle at 35% 30%, #F4E4C1 0 12%, #C6A15B 35%, #8E7646 100%);
+    box-shadow: 0 2px 3px rgba(18, 21, 27, .55);
+  }
+  /* Little tab pointing at what the tip is about: the cards on offer, or your hand. */
+  .hint-slip::after {
+    content: ''; position: absolute; left: 50%; width: 14px; height: 14px; margin-left: -7px; background: #F4E4C1;
+    box-shadow: 1px 1px 0 rgba(142, 118, 70, .55); transform: rotate(45deg);
+  }
+  .hint-slip.points-up { bottom: auto; }
+  .hint-slip.points-up::before { display: none; }
+  .hint-slip.points-up::after { top: -7px; transform: rotate(225deg); }
+  .hint-slip.points-down::after { bottom: -7px; }
+  .hint-title { font-family: var(--font-display); font-size: 1.25rem; letter-spacing: -0.02em; line-height: 1.15; }
+  .hint-text { margin-top: .4rem; font-size: .9rem; line-height: 1.6; color: #272F3D; }
+  .hint-actions { display: flex; align-items: center; gap: 1rem; margin-top: .85rem; }
+  .hint-ok {
+    border-radius: 999px; padding: .45rem 1.05rem; font-size: .85rem; font-weight: 600; color: #F4E4C1; background: #12151B;
+    box-shadow: 0 6px 14px -6px rgba(18, 21, 27, .7);
+    transition: transform .35s var(--spring);
+  }
+  .hint-ok:hover { transform: translateY(-1px); }
+  .hint-ok:active { transform: scale(.95); transition-duration: .08s; }
+  .hint-stop { font-size: .82rem; font-weight: 600; color: #272F3D; text-decoration: underline; text-decoration-color: rgba(18, 21, 27, .35); text-underline-offset: 3px; transition: opacity .2s ease; }
+  .hint-stop:hover { opacity: .7; }
+  .hint-stop:active { opacity: .5; }
+  .hint-ok:focus-visible, .hint-stop:focus-visible { outline: 2px solid #12151B; outline-offset: 3px; border-radius: 999px; }
+  @keyframes hint-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(14px) rotate(-5deg) scale(.94); }
+    to { opacity: 1; transform: translateX(-50%) rotate(-1.2deg); }
+  }
+
   .reaction-bar { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(18, 21, 27, .35); box-shadow: inset 0 0 0 1px rgba(198, 161, 91, .35); }
   .reaction-bar button {
     display: grid; place-items: center; width: 34px; height: 34px; border-radius: 999px; font-size: 18px; line-height: 1;

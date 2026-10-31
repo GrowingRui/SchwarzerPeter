@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
 import type { PracticeSettings } from './host';
 import { PLAY_PATH } from './config';
+import { setSoundOn, soundOn, subscribeSound } from './sound';
 import { LANGS, lang, setLang, t, tn, type Lang } from '../i18n';
 
 const BOT_CHOICES = [1, 2, 3, 4, 5];
@@ -83,9 +84,32 @@ export function TopBar({ children, showLanguage = false }: { children?: ReactNod
       <a href="/" className="logo-mark ring-focus [--logo:60px] sm:[--logo:64px] transition-transform duration-300 hover:-translate-y-0.5 active:scale-95" aria-label={t('home.aria')}>
         <img src="/brand_assets/logo-web.jpg" alt="Schwarzer Peter" />
       </a>
-      {children}
-      {showLanguage && <LangSwitch />}
+      <div className="flex items-center gap-3 sm:gap-4">
+        {children}
+        <SoundToggle />
+        {showLanguage && <LangSwitch />}
+      </div>
     </header>
+  );
+}
+
+/** Speaker button: table sounds are off until you switch them on. */
+export function SoundToggle() {
+  const on = useSyncExternalStore(subscribeSound, soundOn);
+  return (
+    <button
+      type="button"
+      className="sound-toggle"
+      aria-pressed={on}
+      aria-label={t('sound.label')}
+      title={t(on ? 'sound.on' : 'sound.off')}
+      onClick={() => setSoundOn(!on)}
+    >
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z" />
+        {on ? <path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.2 6.4a8 8 0 0 1 0 11.2" /> : <path d="M16 9.5l5 5M21 9.5l-5 5" />}
+      </svg>
+    </button>
   );
 }
 
