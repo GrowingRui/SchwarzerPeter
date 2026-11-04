@@ -18,6 +18,7 @@ npm install
 npm run dev          # website at http://localhost:3000 (same as: node serve.mjs)
 npm run dev:server   # game server at http://localhost:8787 (needed for online rooms)
 npm test             # engine and room tests
+npm run test:online  # plays a whole online game against the local server (add -- --live for the deployed one, -- --quick for quick match)
 npm run typecheck
 npm run build        # production build in apps/web/dist
 ```

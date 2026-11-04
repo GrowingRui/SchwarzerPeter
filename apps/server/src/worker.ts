@@ -184,7 +184,15 @@ const QUICK_FILL_WINDOW_MS = 12_000;
  * up and how many seats it has handed out. It stores no names or players.
  */
 export class Matchmaker extends DurableObject<Env> {
+  /**
+   * One request at a time: creating a room awaits another object, and without
+   * this two people asking at once would each open a table of their own.
+   */
   async seat(): Promise<string | null> {
+    return this.ctx.blockConcurrencyWhile(() => this.seatNow());
+  }
+
+  private async seatNow(): Promise<string | null> {
     const now = Date.now();
     let open = await this.ctx.storage.get<{ code: string; openedAt: number; seated: number }>('open');
     if (!open || open.seated >= QUICK_SEATS || now - open.openedAt > QUICK_FILL_WINDOW_MS) {

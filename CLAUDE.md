@@ -20,6 +20,7 @@
 ## Commands
 - `npm run dev` or `node serve.mjs`: Vite dev server at `http://localhost:3000`.
 - `npm run dev:server`: local game server at `http://localhost:8787`, needed for online rooms. Test with two players from a normal and a private window.
+- `npm run test:online`: two pretend players play a whole online game against `npm run dev:server` (`-- --live` for the deployed server, `-- --quick` adds quick match). Run it before pushing server changes.
 - `npm test`: engine tests. `npm run typecheck`: TypeScript. `npm run build`: production build in `apps/web/dist`.
 - CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every push.
 

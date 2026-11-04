@@ -14,7 +14,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "screenshot": "node screenshot.mjs",
     "dev:server": "npm run dev -w @sp/server",
-    "deploy:server": "npm run deploy -w @sp/server"
+    "deploy:server": "npm run deploy -w @sp/server",
+    "test:online": "node scripts/online-test.mjs"
   },
   "engines": {
     "node": ">=20"

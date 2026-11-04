@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
 import type { ErrorCode, RoomInfo } from '@sp/engine/protocol';
 import type { PlayerId } from '@sp/engine';
-import { RoomClient, createRoom, findQuickTable, roomErrorText } from './room-client';
+import { RoomClient, createRoom, findQuickTable, isOffline, roomErrorText } from './room-client';
 import { PLAY_PATH, roomLink, saveName, savedName } from './config';
 import { Table } from './Table';
 import { TopBar, useDocumentTitle } from './Setup';
@@ -226,6 +226,7 @@ export function OnlineGame({ code }: { code: string }) {
   }
   if (!snap.joined) {
     if (snap.status === 'idle') return <JoinRoom code={code} onJoin={(name) => client.join(name)} />;
+    if (snap.unreachable) return <ServerUnreachable code={code} trying={snap.status === 'connecting'} onRetry={client.retryNow} />;
     return <Waiting text={t('room.joining', { code })} />;
   }
   if (!snap.room || !host) return <Waiting text={t('room.joining', { code })} />;
@@ -272,7 +273,7 @@ export function OnlineGame({ code }: { code: string }) {
           }}
         />
       )}
-      <ConnectionPill reconnecting={snap.status === 'reconnecting'} notice={snap.notice} />
+      <ConnectionPill reconnecting={snap.status === 'reconnecting'} unreachable={snap.unreachable} notice={snap.notice} />
     </>
   );
 }
@@ -479,8 +480,36 @@ function Waiting({ text }: { text: string }) {
   );
 }
 
-function ConnectionPill({ reconnecting, notice }: { reconnecting: boolean; notice: string | null }) {
-  const text = reconnecting ? t('conn.reconnecting') : notice;
+/** Shown while joining a room the server never answers for. Keeps trying in the background. */
+function ServerUnreachable({ code, trying, onRetry }: { code: string; trying: boolean; onRetry: () => void }) {
+  const offline = isOffline();
+  const title = offline ? t('unreachable.offlineTitle') : t('unreachable.title');
+  useDocumentTitle(`${title}: Schwarzer Peter`);
+  return (
+    <Screen>
+      <div className="panel frame elev-2">
+        <Glow />
+        <h1 className="h-display relative text-[clamp(2rem,5vw,2.8rem)]">{title}</h1>
+        <p className="relative mt-3 max-w-md text-pergament-dim">{offline ? t('unreachable.offlineText') : t('unreachable.text')}</p>
+        <p className="relative mt-4 max-w-md text-sm text-pergament-mute" role="status">
+          {t('unreachable.auto', { code })}
+        </p>
+        <div className="relative mt-10 flex flex-wrap items-center gap-4">
+          <button type="button" className="btn btn-glut text-base" onClick={onRetry} disabled={trying}>
+            {trying ? t('unreachable.trying') : t('unreachable.retry')}
+          </button>
+          <a href={PLAY_PATH} className="btn btn-line text-base">
+            {t('problem.practise')}
+          </a>
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+function ConnectionPill({ reconnecting, unreachable, notice }: { reconnecting: boolean; unreachable: boolean; notice: string | null }) {
+  const lost = isOffline() ? t('conn.offline') : unreachable ? t('conn.stillTrying') : t('conn.reconnecting');
+  const text = reconnecting ? lost : notice;
   return (
     <div className="pointer-events-none fixed inset-x-0 top-4 z-[95] flex justify-center px-4" role="status" aria-live="polite">
       {text && <p className="pill">{text}</p>}

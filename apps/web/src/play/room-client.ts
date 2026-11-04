@@ -15,7 +15,19 @@ export interface RoomSnapshot {
   readonly fatal: { code: ErrorCode; message: string } | null;
   /** A problem with the last action, shown briefly. */
   readonly notice: string | null;
+  /** Several tries in a row failed to reach the server. It keeps trying. */
+  readonly unreachable: boolean;
 }
+
+/** How long to wait for the server before counting a try as failed. */
+const CONNECT_TIMEOUT_MS = 8_000;
+/** We tell the player the server can't be reached after this many failed tries in a row, */
+const UNREACHABLE_AFTER = 3;
+/** or once it has been failing for this long. */
+const UNREACHABLE_AFTER_MS = 7_500;
+
+/** The browser knows it has no network at all. */
+export const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
 
 const FATAL: readonly ErrorCode[] = ['ROOM_NOT_FOUND', 'ROOM_FULL', 'GAME_IN_PROGRESS'];
 const tokenKey = (code: string) => `sp.room.${code}`;
@@ -28,7 +40,8 @@ export class TooManyRooms extends Error {
 }
 
 async function askForCode(path: string): Promise<string> {
-  const res = await fetch(`${SERVER_URL}${path}`, { method: 'POST' });
+  // Without a timeout a blocked network can leave the button spinning for minutes.
+  const res = await fetch(`${SERVER_URL}${path}`, { method: 'POST', signal: AbortSignal.timeout(CONNECT_TIMEOUT_MS) });
   if (res.status === 429) throw new TooManyRooms(Number(res.headers.get('Retry-After')) || 60);
   if (!res.ok) throw new Error(`The game server answered ${res.status}.`);
   const { code } = (await res.json()) as { code: string };
@@ -43,7 +56,8 @@ export const createRoom = () => askForCode('/api/rooms');
 
 /** What to tell the player when asking for a room or a seat failed. */
 export function roomErrorText(e: unknown): string {
-  return e instanceof TooManyRooms ? tn('create.tooMany', e.retryAfterSeconds) : t('create.error');
+  if (e instanceof TooManyRooms) return tn('create.tooMany', e.retryAfterSeconds);
+  return isOffline() ? t('create.offline') : t('create.error');
 }
 
 /**
@@ -52,12 +66,16 @@ export function roomErrorText(e: unknown): string {
  */
 export class RoomClient {
   private ws: WebSocket | null = null;
-  private snap: RoomSnapshot = { status: 'idle', joined: false, you: null, room: null, roomAt: 0, fatal: null, notice: null };
+  private snap: RoomSnapshot = { status: 'idle', joined: false, you: null, room: null, roomAt: 0, fatal: null, notice: null, unreachable: false };
   private listeners = new Set<() => void>();
   private stepListeners = new Set<(step: Step) => void>();
   private buffer: Step[] = [];
   private name = '';
   private retries = 0;
+  private failures = 0;
+  /** When the current run of failed tries began, or 0 while connected. */
+  private failingSince = 0;
+  private connectTimer: ReturnType<typeof setTimeout> | undefined;
   private stopped = false;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   private noticeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -80,8 +98,16 @@ export class RoomClient {
     this.name = name;
     saveName(name);
     this.stopped = false;
+    window.addEventListener('online', this.retryNow);
     this.open();
   }
+
+  /** Skip the pause and try to reach the server right away. */
+  retryNow = () => {
+    if (this.stopped || this.ws) return;
+    this.retries = 0;
+    this.open();
+  };
 
   send(msg: ClientMessage) {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
@@ -96,7 +122,9 @@ export class RoomClient {
 
   close() {
     this.stopped = true;
+    window.removeEventListener('online', this.retryNow);
     clearTimeout(this.retryTimer);
+    clearTimeout(this.connectTimer);
     this.ws?.close(1000);
     this.ws = null;
   }
@@ -126,20 +154,29 @@ export class RoomClient {
   private open() {
     clearTimeout(this.retryTimer);
     this.update({ status: this.snap.joined ? 'reconnecting' : 'connecting' });
+    if (!this.failingSince) this.failingSince = Date.now();
     const ws = new WebSocket(`${SERVER_URL.replace(/^http/, 'ws')}/api/rooms/${this.code}/ws`);
     this.ws = ws;
+    // Some blocked networks never answer at all: give up on this try after a while.
+    this.connectTimer = setTimeout(() => ws.readyState === WebSocket.CONNECTING && ws.close(), CONNECT_TIMEOUT_MS);
     ws.onopen = () => {
+      clearTimeout(this.connectTimer);
       const token = this.token;
       ws.send(JSON.stringify(token ? { t: 'hello', name: this.name, token } : { t: 'hello', name: this.name }));
     };
     ws.onmessage = (e) => this.receive(JSON.parse(String(e.data)) as ServerMessage);
     ws.onclose = () => {
+      clearTimeout(this.connectTimer);
       if (this.ws !== ws) return;
       this.ws = null;
       if (this.stopped) return this.update({ status: 'closed' });
       // Try again with a growing pause: 1s, 2s, 4s, then every 8s.
       const delay = Math.min(8000, 1000 * 2 ** this.retries++);
-      this.update({ status: 'reconnecting' });
+      this.failures++;
+      // A connection that was working just dropped: the run of failures starts now.
+      if (!this.failingSince) this.failingSince = Date.now();
+      const unreachable = this.failures >= UNREACHABLE_AFTER || Date.now() - this.failingSince >= UNREACHABLE_AFTER_MS || isOffline();
+      this.update({ status: 'reconnecting', unreachable });
       this.retryTimer = setTimeout(() => this.open(), delay);
     };
   }
@@ -148,8 +185,10 @@ export class RoomClient {
     switch (m.t) {
       case 'welcome':
         this.retries = 0;
+        this.failures = 0;
+        this.failingSince = 0;
         this.token = m.token;
-        this.update({ status: 'open', joined: true, you: m.you });
+        this.update({ status: 'open', joined: true, you: m.you, unreachable: false });
         break;
       case 'room':
         if (m.room.status === 'lobby') this.buffer = [];
